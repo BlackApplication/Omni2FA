@@ -166,3 +166,14 @@ dotnet_style_prefer_auto_properties = true:suggestion
 dotnet_style_prefer_compound_assignment = true:suggestion
 dotnet_style_prefer_simplified_boolean_expressions = true:suggestion
 dotnet_style_readonly_field = true:warning
+
+# ============================================================================
+#                       Analyzer rule suppressions
+# ============================================================================
+
+# CA1000 — "Do not declare static members on generic types".
+# We deliberately use the `Result<T>.Success(value)` / `Result<T>.Failure(code)` factory
+# pattern (same as FluentResults, OneOf, ErrorOr — established convention in the .NET
+# Result-type ecosystem). The rule's preferred alternative (non-generic helper class)
+# adds an extra indirection without a real readability win.
+dotnet_diagnostic.CA1000.severity = none

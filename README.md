@@ -163,6 +163,7 @@ See [`docs/ROADMAP.md`](docs/ROADMAP.md) for the full version plan, [`docs/FLOWS
 - ⚡ **Rate limiting** out of the box — default 20 attempts/minute/IP on verify endpoints. Configurable, with a sensible-by-default brute-force ceiling that won't annoy real users.
 - 📜 **Audit sink** — optional `IOmni2FaAuditSink` interface for enrollment, verify, and recovery events. Plug into your existing audit pipeline, or skip it and we just log to `ILogger`.
 - 🌍 **i18n-ready** — email templates and UI strings translate via standard mechanisms (`IStringLocalizer<T>` on .NET, `react-i18next` on the React side).
+- 🔧 **Migration-friendly** — designed so apps with existing custom 2FA can switch without re-enrolling users. See [Migrating from your existing 2FA](#migrating-from-your-existing-2fa).
 
 ---
 
@@ -174,6 +175,19 @@ These are **not** going into Omni2FA, even later. They belong to the host applic
 - **Password authentication itself.** Omni2FA layers on top of your existing login. You verify the password; we handle everything after.
 - **Session management / JWT issuance.** We return "verified, here is the user id" — your app mints its session.
 - **User management UI.** Profile/settings pages are yours; we only provide the 2FA section.
+
+---
+
+## Migrating from your existing 2FA
+
+If your app already has a custom 2FA implementation — Omni2FA is designed to absorb it cleanly:
+
+- **Configurable DataProtector scope** — point Omni2FA at the same DPAPI scope you used before, and existing TOTP secrets decrypt without users re-enrolling.
+- **Configurable table and column names** — keep your existing schema names (e.g. `UserTwoFactorMethods` instead of our default `Omni2FaMethods`) via `modelBuilder.ApplyOmni2FaConfiguration(o => o.MethodsTableName = "UserTwoFactorMethods")`.
+- **Schema 1:1 with typical custom implementations** — fields like `Id`, `UserId`, `Kind`, `Name`, `IsActive`, `CreatedAt`, `LastUsedAt`, `TotpSecret`, and WebAuthn columns line up directly. Data migration is a single `INSERT … SELECT` SQL.
+- **Pluggable audit, email, and persistence** — `IOmni2FaAuditSink`, `IEmailSender`, and `ITwoFactorMethodStore` plug into your existing infrastructure without forking.
+
+A step-by-step migration guide ships with v0.5 in [`docs/MIGRATION.md`](docs/MIGRATION.md).
 
 ---
 

@@ -236,7 +236,35 @@ On the .NET side the equivalent abstraction is `IPreAuthTokenSink` (where to iss
 
 ---
 
-## 8. Why this matters
+## 8. Configurability (binding)
+
+Omni2FA targets **production apps that may already have their own custom 2FA implementation** they want to replace. Greenfield is welcome, but migration is a first-class scenario. The library must not lock users into Omni2FA-shaped defaults when they have existing data or naming conventions.
+
+Anything that could collide with a host's existing state must be configurable via `Omni2FaOptions` — no hardcoded magic strings in core code.
+
+**Required configuration points** (from v0.1):
+
+| Setting | Default | Why configurable |
+|---------|---------|------------------|
+| `DataProtection.Scope` | `"Omni2FA"` | Hosts with existing TOTP secrets encrypted under a different scope (e.g. `"TwoFactorSecrets"`) must be able to point Omni2FA at their existing scope so secrets decrypt correctly. Without this, every user has to re-enroll. |
+| `Issuer` (TOTP otpauth URI) | application name | Shown in authenticator apps next to the account. Must match what users see today. |
+| Table / column names (EF mapping) | `Omni2FaMethods`, `Omni2FaChallenges` | Host migrating from `UserTwoFactorMethods` may want to keep the old table name to avoid renaming in queries / reports. Configurable via `modelBuilder.ApplyOmni2FaConfiguration(o => o.MethodsTableName = "UserTwoFactorMethods")`. |
+| Pre-auth token TTL | 5 minutes | Different products have different UX tolerance. |
+| TOTP tolerance window | ±1 step (±30 s) | Loose vs tight clock-skew tolerance. |
+| Per-user WebAuthn credential cap | 3 | Hosts may want 5 or 10. |
+| Verify rate limit | 20/min/IP | Configurable per host policy. |
+| Allow disabling last method | true | Stricter hosts require 2FA — set false to forbid removing the last method. |
+
+**Required pluggable services** (interfaces in `Omni2FA.Core`):
+
+- `IOmni2FaAuditSink` — forward audit events into host's audit log.
+- `IEmailSender` — replace default SMTP sender with host's email infrastructure.
+- `ITwoFactorMethodStore` / `ITwoFactorChallengeStore` — replace EF store with custom backend (Mongo, Dapper, raw ADO).
+- `IDataProtectionProvider` — pass host's existing provider (standard ASP.NET Core interface, not Omni2FA-specific).
+
+**The test for "is this configurable enough?"** is the QRpark migration. QRpark already has a working custom 2FA implementation. Migrating QRpark to Omni2FA on v0.5 will surface every missing configuration point. Anything that requires touching Omni2FA source code instead of just config — that's a missing option.
+
+## 9. Why this matters
 
 A common failure mode for "universal" libraries: framework adapter v1 accidentally absorbs business logic ("just a quick if for Email"), and by the time someone tries to add Vue support, half the FSM lives in React hooks. Porting then means rewriting, not wrapping.
 
@@ -246,7 +274,8 @@ This document is the contract for that choice.
 
 ---
 
-## 9. Change log
+## 10. Change log
 
 - **2026-05-20** — initial draft from session 1. Captures the framework-agnostic core / thin adapter principle as a binding rule, with boundary map, code review checklist, and dependency graph.
 - **2026-05-20** — `.NET` physical layout updated to mirror the boundary: `Omni2FA.Core` and `Omni2FA.WebAuthn` moved from `.Net/src/` to `.Net/Core/`. `.Net/src/` now holds only ASP.NET-coupled adapters. `Omni2FA.sln` lives in `.Net/` root, references both folders. Rationale: makes the framework-agnostic boundary visible at the path level during code review.
+- **2026-05-21** — added section 8 "Configurability (binding)". Migration from custom 2FA implementations (starting with QRpark on v0.5) is a first-class scenario; no hardcoded magic strings in core, all collision-prone settings exposed via `Omni2FaOptions` or pluggable interfaces. Original "Why this matters" renumbered to 9, change log to 10.
