@@ -151,7 +151,7 @@ Same React component works against a Python backend that implements the Omni2FA 
 | Trusted devices   | Planned v1.1 | "Remember this browser" — skip 2FA on known devices         |
 | SMS               | v2+ (demand-driven) | Carrier cost & complexity — opt-in pluggable sender |
 
-See [`docs/ROADMAP.md`](docs/ROADMAP.md) for the full version plan, [`docs/FLOWS.md`](docs/FLOWS.md) for login/enrollment/recovery flow diagrams, and [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) for the framework-agnostic core / thin adapter contract.
+See [`docs/ROADMAP.md`](docs/ROADMAP.md) for the full version plan, [`docs/FLOWS.md`](docs/FLOWS.md) for login/enrollment/recovery flow diagrams, [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) for the framework-agnostic core / thin adapter contract, and [`Core/protocol/`](Core/protocol/) for the OpenAPI 3.1 contract that defines every endpoint and DTO across all stacks.
 
 ---
 

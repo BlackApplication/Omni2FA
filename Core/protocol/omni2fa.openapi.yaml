@@ -1,0 +1,528 @@
+openapi: 3.1.0
+
+info:
+  title: Omni2FA API
+  version: 0.0.0
+  summary: Cross-stack HTTP contract for multi-method 2FA.
+  description: |
+    The HTTP contract that any backend implementing Omni2FA must satisfy, and
+    that any frontend implementing Omni2FA expects. The same contract is the
+    integration point for cross-stack combinations (React + .NET, React + Python,
+    Angular + .NET, …).
+
+    **This document is the source of truth.** Backend implementations (.NET,
+    future Python) and frontend implementations (React, future Vue/Angular)
+    are generated from or verified against this file.
+
+    ## Scope per milestone
+
+    | Milestone | Endpoints included in this spec |
+    |-----------|---------------------------------|
+    | v0.0 (current, pre-alpha) | Scaffolding — TOTP enrollment + login challenge, methods list/delete. |
+    | v0.1 | Same as v0.0 but with implementations on .NET + React. |
+    | v0.2 | + Email OTP endpoints (`/enroll/email/*`). |
+    | v0.3 | + WebAuthn endpoints (`/enroll/webauthn/*`). |
+    | v0.4 | + Recovery codes (`/recovery-codes/*`, returned in enrollment responses). |
+    | v1.0 | Frozen — breaking changes from here on bump major. |
+
+    See `docs/FLOWS.md` for sequence diagrams and `Core/protocol/ERROR_CODES.md`
+    for the full error code catalogue.
+
+    ## Versioning
+
+    `info.version` matches the Omni2FA library milestone version. Packages on
+    the same `MAJOR.MINOR.*` are compatible — see `docs/ROADMAP.md` "Versioning
+    model".
+
+  license:
+    name: MIT
+    identifier: MIT
+  contact:
+    name: Omni2FA on GitHub
+    url: https://github.com/BlackApplication/Omni2FA
+
+servers:
+  - url: '{baseUrl}/api/2fa'
+    description: Default mount point. Host applications may remount under a different prefix via configuration.
+    variables:
+      baseUrl:
+        default: 'https://your-app.example.com'
+        description: Your application's origin.
+
+tags:
+  - name: methods
+    description: List and remove enrolled 2FA methods. Requires a full host session.
+  - name: challenge
+    description: |
+      Login flow steps after the host has verified the user's password.
+      All endpoints in this tag require a pre-auth token (issued by the host
+      via the server-side helper `IPreAuthTokenIssuer.IssueAsync(userId)`).
+  - name: enroll-totp
+    description: Enroll a TOTP authenticator (Google Authenticator, Authy, 1Password, …).
+
+paths:
+  # ------------------------------------------------------------------
+  #  methods — list & remove
+  # ------------------------------------------------------------------
+  /methods:
+    get:
+      tags: [methods]
+      operationId: listMethods
+      summary: List active 2FA methods for the current user.
+      security:
+        - HostSession: []
+      responses:
+        '200':
+          description: Array of active methods. Empty array if user has no 2FA enrolled.
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/TwoFactorMethodDto'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+  /methods/{methodId}:
+    delete:
+      tags: [methods]
+      operationId: removeMethod
+      summary: Remove an enrolled 2FA method.
+      description: |
+        Removes a single enrolled method. If this is the user's last method
+        and the host has configured `AllowDisabling = false`, the request
+        returns `409 LAST_METHOD_PROTECTED` — host policy decides whether
+        to forbid removing the last method.
+      security:
+        - HostSession: []
+      parameters:
+        - $ref: '#/components/parameters/MethodIdPath'
+      responses:
+        '204':
+          description: Method removed.
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          description: Method not found, or does not belong to current user.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '409':
+          description: Conflict — removing this method is forbidden by host policy.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  # ------------------------------------------------------------------
+  #  challenge — login flow steps (pre-auth token required)
+  # ------------------------------------------------------------------
+  /challenge/start:
+    post:
+      tags: [challenge]
+      operationId: startChallenge
+      summary: Start verification of a chosen method.
+      description: |
+        After the host verifies the user's password and issues a pre-auth token,
+        the frontend calls this with the picked method. Backend prepares
+        method-specific challenge state — see response shape per kind.
+
+        For **TOTP** — this is a no-op acknowledgment; the user enters the code
+        from their authenticator and the frontend goes straight to `/verify`.
+
+        For **Email** (v0.2+) — backend sends an OTP email and returns confirmation.
+
+        For **WebAuthn** (v0.3+) — backend returns assertion request options
+        for `navigator.credentials.get()`.
+      security:
+        - PreAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ChallengeStartRequest'
+      responses:
+        '200':
+          description: Challenge prepared. Response shape depends on method kind.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ChallengeStartResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/PreAuthInvalidOrExpired'
+        '404':
+          description: Method not found, or does not belong to current pre-auth user.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+
+  /challenge/verify:
+    post:
+      tags: [challenge]
+      operationId: verifyChallenge
+      summary: Verify the user's response to a challenge.
+      description: |
+        Final step of the 2FA login flow. On success, the host application
+        receives the `userId` and is responsible for minting its session JWT.
+
+        Omni2FA does **not** issue session tokens — only verification results.
+      security:
+        - PreAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ChallengeVerifyRequest'
+      responses:
+        '200':
+          description: Verification succeeded.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/VerifySuccessResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          description: Code invalid, pre-auth invalid/expired, or challenge consumed/missing.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+
+  # ------------------------------------------------------------------
+  #  enrollment — TOTP
+  # ------------------------------------------------------------------
+  /enroll/totp/start:
+    post:
+      tags: [enroll-totp]
+      operationId: startTotpEnrollment
+      summary: Begin TOTP enrollment.
+      description: |
+        Generates a fresh secret, persists it as a pending enrollment,
+        and returns the otpauth:// URI plus the base32 secret. The frontend
+        renders the URI as a QR and shows the secret for manual entry.
+      security:
+        - HostSession: []
+      responses:
+        '200':
+          description: Enrollment ceremony started.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TotpEnrollStartResponse'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '409':
+          description: TOTP method already enrolled for this user.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /enroll/totp/confirm:
+    post:
+      tags: [enroll-totp]
+      operationId: confirmTotpEnrollment
+      summary: Confirm TOTP enrollment by verifying a code.
+      description: |
+        User scans the QR and submits the first 6-digit code from their
+        authenticator. Backend validates the code against the pending secret
+        and persists the method on success.
+      security:
+        - HostSession: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/TotpEnrollConfirmRequest'
+      responses:
+        '200':
+          description: TOTP enrolled.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MethodCreatedResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          description: No pending TOTP enrollment for this user, or it has expired.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+
+components:
+
+  # ------------------------------------------------------------------
+  #  Security schemes
+  # ------------------------------------------------------------------
+  securitySchemes:
+    HostSession:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+      description: |
+        The host application's full session token. Omni2FA does not issue
+        this — your existing auth does. Endpoints under `methods` and
+        `enroll-*` require this. The user has fully logged in.
+    PreAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+      description: |
+        Short-lived (default 3-5 min) pre-auth token issued by Omni2FA after
+        the host has verified the user's password but before 2FA verification
+        completes. Used exclusively by `/challenge/*` endpoints.
+        Token is invalidated immediately after a successful `/challenge/verify`.
+
+  # ------------------------------------------------------------------
+  #  Parameters
+  # ------------------------------------------------------------------
+  parameters:
+    MethodIdPath:
+      name: methodId
+      in: path
+      required: true
+      description: Identifier of the enrolled method.
+      schema:
+        type: string
+        format: uuid
+
+  # ------------------------------------------------------------------
+  #  Schemas
+  # ------------------------------------------------------------------
+  schemas:
+
+    # --- Enums ---
+
+    TwoFactorMethodKind:
+      type: string
+      enum: [Totp, Email, WebAuthn]
+      description: |
+        The kind of 2FA factor. Currently only `Totp` is implemented (v0.1).
+        `Email` lands in v0.2, `WebAuthn` in v0.3.
+
+    # --- Method DTOs ---
+
+    TwoFactorMethodDto:
+      type: object
+      required: [id, kind, createdAt]
+      properties:
+        id:
+          type: string
+          format: uuid
+        kind:
+          $ref: '#/components/schemas/TwoFactorMethodKind'
+        name:
+          type: [string, "null"]
+          description: Optional human-readable label (e.g. "Personal authenticator", "YubiKey 5").
+        createdAt:
+          type: string
+          format: date-time
+        lastUsedAt:
+          type: [string, "null"]
+          format: date-time
+
+    # --- Login challenge ---
+
+    PreAuthChallengeResponse:
+      type: object
+      description: |
+        **Contract-only schema — not used by any Omni2FA endpoint.**
+
+        Returned by the **host's** login endpoint (e.g. `POST /auth/login`)
+        when the verified user has 2FA methods enrolled. Carries the
+        short-lived pre-auth token (issued via the .NET helper
+        `IPreAuthTokenIssuer.IssueAsync(userId)`) and the list of methods the
+        user can pick from.
+
+        This schema is published as part of the cross-stack contract so any
+        host implementation (.NET, Python, Node, …) returns the same shape
+        and any frontend can decode it identically. Because no Omni2FA-owned
+        endpoint produces it, the `no-unused-components` linter rule is
+        suppressed for this single schema in `.redocly.lint-ignore.yaml`.
+      required: [preAuthToken, availableMethods, expiresAt]
+      properties:
+        preAuthToken:
+          type: string
+          description: Short-lived JWT. Send as Bearer token to all `/challenge/*` endpoints.
+        availableMethods:
+          type: array
+          items:
+            $ref: '#/components/schemas/TwoFactorMethodDto'
+        expiresAt:
+          type: string
+          format: date-time
+
+    ChallengeStartRequest:
+      type: object
+      required: [methodId]
+      properties:
+        methodId:
+          type: string
+          format: uuid
+          description: ID of the method the user picked from `availableMethods`.
+
+    ChallengeStartResponse:
+      type: object
+      description: |
+        Method-specific challenge payload. `kind` discriminates the shape.
+        For TOTP — empty payload (just confirms challenge started).
+        Email/WebAuthn payloads will be added in v0.2/v0.3.
+      required: [kind]
+      properties:
+        kind:
+          $ref: '#/components/schemas/TwoFactorMethodKind'
+        # method-specific fields added in v0.2 (email) and v0.3 (webauthn assertion options)
+
+    ChallengeVerifyRequest:
+      type: object
+      required: [methodId, code]
+      properties:
+        methodId:
+          type: string
+          format: uuid
+        code:
+          type: string
+          description: |
+            For TOTP and Email — 6-digit numeric code.
+            For WebAuthn (v0.3+) — base64url-encoded assertion JSON.
+
+    VerifySuccessResponse:
+      type: object
+      required: [verified, userId]
+      properties:
+        verified:
+          type: boolean
+          description: Always `true` on this response. Failures use `4xx` with `ErrorResponse`.
+        userId:
+          type: string
+          format: uuid
+          description: |
+            Verified user's identifier. The host application uses this to mint
+            its final session JWT/cookie. Omni2FA does not issue session tokens.
+
+    # --- TOTP enrollment ---
+
+    TotpEnrollStartResponse:
+      type: object
+      required: [enrollmentId, otpAuthUri, secret]
+      properties:
+        enrollmentId:
+          type: string
+          format: uuid
+          description: Identifier for the pending enrollment ceremony. Pass back in `confirm`.
+        otpAuthUri:
+          type: string
+          description: |
+            `otpauth://` URI for authenticator app QR code. Format:
+            `otpauth://totp/{Issuer}:{accountLabel}?secret={base32}&issuer={Issuer}&algorithm=SHA1&digits=6&period=30`.
+          example: 'otpauth://totp/MyApp:alice@example.com?secret=JBSWY3DPEHPK3PXP&issuer=MyApp&algorithm=SHA1&digits=6&period=30'
+        secret:
+          type: string
+          description: Base32-encoded TOTP secret. Shown to the user as a fallback to QR scanning.
+          example: 'JBSWY3DPEHPK3PXP'
+
+    TotpEnrollConfirmRequest:
+      type: object
+      required: [enrollmentId, code]
+      properties:
+        enrollmentId:
+          type: string
+          format: uuid
+          description: Value returned from `/enroll/totp/start`.
+        code:
+          type: string
+          description: 6-digit code from the user's authenticator app.
+          example: '123456'
+        name:
+          type: [string, "null"]
+          description: Optional human-readable label for this method.
+
+    MethodCreatedResponse:
+      type: object
+      required: [methodId]
+      properties:
+        methodId:
+          type: string
+          format: uuid
+          description: Identifier of the newly created method.
+        # v0.4 will add `recoveryCodes: string[]` for first-method-enrollment responses.
+
+    # --- Errors ---
+
+    ErrorResponse:
+      type: object
+      required: [code, message]
+      description: |
+        Uniform error envelope returned by every non-2xx response. Frontends
+        switch on `code` (machine-readable, stable). `message` is informational
+        and may be localized.
+        See `Core/protocol/ERROR_CODES.md` for the full catalogue.
+      properties:
+        code:
+          type: string
+          description: Machine-readable error code, stable across versions.
+          example: 'INVALID_CODE'
+        message:
+          type: string
+          description: Human-readable message. May be localized by host.
+          example: 'The code you entered is invalid.'
+        details:
+          type: [object, "null"]
+          additionalProperties: true
+          description: Optional structured context. Shape depends on `code`.
+
+  # ------------------------------------------------------------------
+  #  Reusable responses
+  # ------------------------------------------------------------------
+  responses:
+    Unauthorized:
+      description: Missing or invalid session token.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+
+    PreAuthInvalidOrExpired:
+      description: Pre-auth token is missing, malformed, or expired.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+
+    BadRequest:
+      description: Request validation failed.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+
+    TooManyRequests:
+      description: |
+        Rate limit exceeded. Default policy is 20 attempts per minute per IP
+        on verify endpoints — see `docs/CODE_STYLE.md` rule 5 + ROADMAP v0.6.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+      headers:
+        Retry-After:
+          description: Seconds until the next attempt is allowed.
+          schema:
+            type: integer
