@@ -11,7 +11,17 @@
     "mui",
     "material-ui"
   ],
+  "author": "BlackApplication",
   "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/BlackApplication/Omni2FA.git",
+    "directory": "React/react-mui"
+  },
+  "bugs": {
+    "url": "https://github.com/BlackApplication/Omni2FA/issues"
+  },
+  "homepage": "https://github.com/BlackApplication/Omni2FA#readme",
   "type": "module",
   "publishConfig": {
     "access": "public"

@@ -3,7 +3,16 @@
   "version": "0.0.0",
   "private": true,
   "description": "Omni2FA monorepo — multi-method 2FA library for any stack. This root package is not published; see Core/js, React/react, and React/react-mui for the publishable packages.",
+  "author": "BlackApplication",
   "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/BlackApplication/Omni2FA.git"
+  },
+  "bugs": {
+    "url": "https://github.com/BlackApplication/Omni2FA/issues"
+  },
+  "homepage": "https://github.com/BlackApplication/Omni2FA#readme",
   "engines": {
     "node": ">=20"
   },

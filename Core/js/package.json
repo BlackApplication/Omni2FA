@@ -1,0 +1,32 @@
+{
+  "name": "@omni2fa/core",
+  "version": "0.0.0",
+  "description": "Omni2FA — framework-agnostic TypeScript core. State machines, WebAuthn ceremony, HTTP client, timers, validation. No React/Vue/Angular dependencies. Consumed by @omni2fa/react and future Vue/Angular/Svelte adapters.",
+  "keywords": [
+    "2fa",
+    "two-factor-authentication",
+    "mfa",
+    "totp",
+    "webauthn",
+    "passkey",
+    "email-otp",
+    "framework-agnostic",
+    "headless"
+  ],
+  "author": "BlackApplication",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/BlackApplication/Omni2FA.git",
+    "directory": "Core/js"
+  },
+  "bugs": {
+    "url": "https://github.com/BlackApplication/Omni2FA/issues"
+  },
+  "homepage": "https://github.com/BlackApplication/Omni2FA#readme",
+  "type": "module",
+  "publishConfig": {
+    "access": "public"
+  },
+  "sideEffects": false
+}

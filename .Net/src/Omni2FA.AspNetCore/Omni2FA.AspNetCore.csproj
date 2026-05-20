@@ -1,0 +1,18 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <PackageId>Omni2FA.AspNetCore</PackageId>
+    <Description>Omni2FA — ASP.NET Core integration. Endpoints (/api/2fa/*), DI extensions (AddOmni2Fa), filters, default SMTP email sender. Drop-in 2FA for ASP.NET Core apps.</Description>
+    <PackageTags>2fa;mfa;totp;webauthn;aspnetcore;authentication;security</PackageTags>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <FrameworkReference Include="Microsoft.AspNetCore.App" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\..\Core\Omni2FA.Core\Omni2FA.Core.csproj" />
+    <ProjectReference Include="..\..\Core\Omni2FA.WebAuthn\Omni2FA.WebAuthn.csproj" />
+  </ItemGroup>
+
+</Project>

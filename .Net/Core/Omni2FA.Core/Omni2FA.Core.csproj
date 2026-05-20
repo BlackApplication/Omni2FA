@@ -1,0 +1,9 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <PackageId>Omni2FA.Core</PackageId>
+    <Description>Omni2FA — framework-agnostic .NET backbone. Domain models, store interfaces, TOTP and Email OTP services. References no ASP.NET Core, no EF Core, no HTTP infrastructure. Consumed by Omni2FA.AspNetCore and any future non-ASP.NET adapter.</Description>
+    <PackageTags>2fa;mfa;totp;otp;authenticator;security;framework-agnostic</PackageTags>
+  </PropertyGroup>
+
+</Project>
