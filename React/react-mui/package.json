@@ -1,0 +1,30 @@
+{
+  "name": "@omni2fa/react-mui",
+  "version": "0.0.0",
+  "description": "Omni2FA — drop-in 2FA UI for React apps on Material UI. Pre-built methods section, enrollment dialogs, login challenge UI. Wraps @omni2fa/react headless hooks — no business logic of its own.",
+  "keywords": [
+    "2fa",
+    "mfa",
+    "totp",
+    "webauthn",
+    "react",
+    "mui",
+    "material-ui"
+  ],
+  "license": "MIT",
+  "type": "module",
+  "publishConfig": {
+    "access": "public"
+  },
+  "sideEffects": false,
+  "peerDependencies": {
+    "@mui/material": ">=6.0.0",
+    "@mui/icons-material": ">=6.0.0",
+    "react": ">=19.0.0",
+    "react-dom": ">=19.0.0"
+  },
+  "dependencies": {
+    "@omni2fa/core": "0.0.0",
+    "@omni2fa/react": "0.0.0"
+  }
+}

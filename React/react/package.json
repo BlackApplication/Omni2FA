@@ -1,0 +1,27 @@
+{
+  "name": "@omni2fa/react",
+  "version": "0.0.0",
+  "description": "Omni2FA — headless React adapter. Thin hooks (useLoginFlow, useEnrollTotp, …) that subscribe to @omni2fa/core stores via useSyncExternalStore. No business logic — bring your own UI, or use @omni2fa/react-mui for a styled drop-in.",
+  "keywords": [
+    "2fa",
+    "mfa",
+    "totp",
+    "webauthn",
+    "react",
+    "headless",
+    "hooks"
+  ],
+  "license": "MIT",
+  "type": "module",
+  "publishConfig": {
+    "access": "public"
+  },
+  "sideEffects": false,
+  "peerDependencies": {
+    "react": ">=19.0.0",
+    "react-dom": ">=19.0.0"
+  },
+  "dependencies": {
+    "@omni2fa/core": "0.0.0"
+  }
+}
