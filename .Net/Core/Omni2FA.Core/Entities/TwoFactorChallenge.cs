@@ -8,10 +8,8 @@ namespace Omni2FA.Core.Entities;
 /// <see cref="ExpiresAt"/> passes.
 /// </summary>
 public class TwoFactorChallenge {
-    /// <summary>Identifier of this challenge row.</summary>
     public Guid Id { get; set; }
 
-    /// <summary>The host's user id this challenge belongs to.</summary>
     public Guid UserId { get; set; }
 
     /// <summary>
@@ -37,15 +35,14 @@ public class TwoFactorChallenge {
     /// <summary>Binary challenge bytes for a WebAuthn ceremony (registration or assertion).</summary>
     public byte[]? WebAuthnChallenge { get; set; }
 
-    /// <summary>When this challenge was created (UTC).</summary>
+    /// <summary>UTC.</summary>
     public DateTime CreatedAt { get; set; }
 
-    /// <summary>When this challenge stops being valid (UTC).</summary>
+    /// <summary>UTC.</summary>
     public DateTime ExpiresAt { get; set; }
 
-    /// <summary>When this challenge was consumed by a successful verify. Null = still active. UTC.</summary>
+    /// <summary>UTC. Null = still active.</summary>
     public DateTime? ConsumedAt { get; set; }
 
-    /// <summary>Count of failed verify attempts against this challenge.</summary>
     public int FailedAttempts { get; set; }
 }

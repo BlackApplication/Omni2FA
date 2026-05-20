@@ -13,17 +13,14 @@ namespace Omni2FA.Core.Services;
 public class DataProtectionSecretProtector : ISecretProtector {
     private readonly IDataProtector _protector;
 
-    /// <summary>Construct with the host's <see cref="IDataProtectionProvider"/> and Omni2FA options.</summary>
     public DataProtectionSecretProtector(IDataProtectionProvider provider, IOptions<Omni2FaOptions> options) {
         _protector = provider.CreateProtector(options.Value.DataProtection.Scope);
     }
 
-    /// <inheritdoc />
     public string Protect(string plaintext) {
         return _protector.Protect(plaintext);
     }
 
-    /// <inheritdoc />
     public string Unprotect(string protectedValue) {
         return _protector.Unprotect(protectedValue);
     }

@@ -31,6 +31,14 @@ This is a **living document**. Whenever a new rule is agreed upon during a sessi
   ```
 - **Always use braces** for `if`/`else`/loops, even one-line bodies.
 - **Parameter wrapping:** methods/constructors/calls with **3 or fewer** parameters stay on one line. **4+** parameters → wrap one per line. But before wrapping, ask: can the signature be collapsed into a single options DTO? If yes — prefer the DTO.
+- **Line length tolerance:** ~190 characters is fine before considering wrapping. Wide monitors are standard; more code on screen beats premature line splits.
+- **Generic constraints (`where T : ...`)** stay on the same line as the method signature when they fit:
+  ```csharp
+  public static IServiceCollection AddOmni2FaEntityFrameworkStore<TDbContext>(this IServiceCollection services) where TDbContext : DbContext {
+      ...
+  }
+  ```
+- **Fluent chains** (LINQ, builder calls) wrap per call — that's data-flow readability, not a signature break.
 - **Boolean condition wrapping:** 3 or fewer `&&`/`||` clauses stay on one line. **4+** clauses → wrap one per line.
 
 ## 3. Naming
@@ -75,8 +83,15 @@ This is a **living document**. Whenever a new rule is agreed upon during a sessi
 ## 8. Comments
 
 - Default: no comments. Identifier names should explain *what*.
-- A comment is justified only when *why* is non-obvious — a workaround, a hidden constraint, an invariant. Keep it short.
+- A comment is justified only when *why* is non-obvious — a workaround, a hidden constraint, an invariant, units (UTC, bytes, seconds), format examples, non-obvious lifecycle. Keep it short.
 - Never reference task tracking, "added for X flow", or commit metadata in code comments.
+
+**Specific noise to avoid:**
+
+- **`<inheritdoc />` alone on an implementation.** If the interface is documented, IntelliSense reads it through the interface. Add an XML doc on a concrete method only when there's something to add *beyond* what the interface says.
+- **`<summary>` that just restates the identifier.** `Id` → `Identifier of the row` adds zero information. `Kind` → `The kind of factor` is the same. Delete those.
+
+**Heuristic before keeping a comment:** if you removed it, would the reader lose anything the identifier doesn't already say? If no — delete.
 
 ## 9. Errors & results
 
@@ -109,6 +124,7 @@ If you're about to put a `setTimeout`, a `fetch`, an `if (kind === 'Totp')`, or 
 - **2026-05-20** — initial draft from session 1. Captured rules (1)–(10) from Andrey's stated preferences.
 - **2026-05-20** — clarified latest-stack stance: React 19+, TS 5+ (rule 4). .NET TFM left pending — .NET 9 reached EOL on 2026-05-12 and is not safe to ship; awaiting decision between net8.0 (current LTS, supported through Nov 2026) and waiting on net10.0 (next LTS, releases Nov 2026).
 - **2026-05-20** — .NET TFM decided: **net8.0**. Plan: migrate to net10.0 at the earliest opportunity after its release (~Nov 2026).
+- **2026-05-21** — clarified rule 2 ("Braces & line wrapping"): added ~190-char tolerance, explicit guidance for `where` generic constraints (same line as signature), and fluent chains (wrap per call is fine — data flow, not signature break).
 - **2026-05-20** — additional architectural decisions captured (see `docs/FLOWS.md` & `docs/ROADMAP.md`):
   - Pre-auth token (industry term) replaces working name "challenge_token" everywhere — APIs, code, docs.
   - Recovery codes are first-class — v0.4, hashed at rest, generated on first method enrollment, shown once.

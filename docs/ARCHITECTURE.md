@@ -191,21 +191,23 @@ Physical layout inside `.Net/` reflects the core/adapter boundary directly:
 Project dependency graph:
 
 ```
-Omni2FA.Core                              (in .Net/Core/ — no AspNetCore, no EF, no HTTP)
-    ↑
-Omni2FA.WebAuthn                          (in .Net/Core/ — Omni2FA.Core + Fido2NetLib only)
-    ↑
-Omni2FA.AspNetCore                        (in .Net/src/ — Omni2FA.Core + Omni2FA.WebAuthn)
-    ↑
-Omni2FA.AspNetCore.EntityFrameworkCore    (in .Net/src/ — Omni2FA.AspNetCore + EF Core)
+                Omni2FA.Core                                    (in .Net/Core/ — no AspNetCore, no EF, no HTTP)
+                    ↑
+        ┌───────────┼───────────────────────────────┐
+        │           │                               │
+Omni2FA.WebAuthn  Omni2FA.AspNetCore             Omni2FA.AspNetCore.EntityFrameworkCore
+(in .Net/Core/)   (in .Net/src/ — Core +         (in .Net/src/ — Core + EF Core only;
+                  WebAuthn + AspNetCore)          no AspNetCore reference)
 ```
+
+`Omni2FA.AspNetCore.EntityFrameworkCore` only implements the `Omni2FA.Core` store interfaces with EF Core. It does **not** depend on `Omni2FA.AspNetCore` — hosts that use a custom HTTP layer (Worker Service, gRPC, minimal API rolled by hand) can still pull in just the EF adapter.
 
 Rules:
 - `Omni2FA.Core` and `Omni2FA.WebAuthn` live in **`.Net/Core/`**. They reference no ASP.NET, no EF, no HTTP — pure domain + interfaces + standards-based crypto.
-- `.Net/src/` is **only for ASP.NET-Core-coupled** packages. If a project depends on `Microsoft.AspNetCore.*`, it lives in `src/`. If not, it lives in `Core/`.
+- `.Net/src/` holds **adapter packages** — store implementations, HTTP-layer packages, etc. A project lives in `src/` if it pulls in any infrastructure dependency (EF Core, ASP.NET Core, a specific HTTP client).
+- Adapters are **independent siblings** — `Omni2FA.AspNetCore.EntityFrameworkCore` does NOT depend on `Omni2FA.AspNetCore`. Each adapter pulls only `Omni2FA.Core` plus its own infrastructure SDK.
 - `Omni2FA.sln` lives in `.Net/` root and references projects from both `Core/` and `src/`.
-- A future `Omni2FA.Dapper` store adapter would sit next to the EF one in `.Net/src/`. A future `Omni2FA.MongoDB` adapter — same shape.
-- A future non-ASP.NET .NET adapter (gRPC, MAUI auth flow, etc.) would also land in `.Net/src/` as its own project. The Core/ backbone is unchanged.
+- A future `Omni2FA.Dapper` store adapter would sit next to the EF one in `.Net/src/`. Same for `Omni2FA.MongoDB`, `Omni2FA.Grpc`, `Omni2FA.MinimalApi`, etc. The `Core/` backbone is unchanged.
 
 > **Why split `.Net/Core/` and `.Net/src/`?** Same reason as the JS side: framework-agnostic code is held to a different review bar (no business-logic leaks, dependency surface kept minimal). Putting them in physically separate folders makes accidental ASP.NET-imports in `Omni2FA.Core` visible during code review at the path level, before reading a single line.
 
@@ -279,3 +281,4 @@ This document is the contract for that choice.
 - **2026-05-20** — initial draft from session 1. Captures the framework-agnostic core / thin adapter principle as a binding rule, with boundary map, code review checklist, and dependency graph.
 - **2026-05-20** — `.NET` physical layout updated to mirror the boundary: `Omni2FA.Core` and `Omni2FA.WebAuthn` moved from `.Net/src/` to `.Net/Core/`. `.Net/src/` now holds only ASP.NET-coupled adapters. `Omni2FA.sln` lives in `.Net/` root, references both folders. Rationale: makes the framework-agnostic boundary visible at the path level during code review.
 - **2026-05-21** — added section 8 "Configurability (binding)". Migration from custom 2FA implementations (starting with QRpark on v0.5) is a first-class scenario; no hardcoded magic strings in core, all collision-prone settings exposed via `Omni2FaOptions` or pluggable interfaces. Original "Why this matters" renumbered to 9, change log to 10.
+- **2026-05-21** — .NET dependency graph clarified: adapter packages (`Omni2FA.AspNetCore.EntityFrameworkCore`, future `Omni2FA.Dapper`, etc.) are **siblings**, all depending only on `Omni2FA.Core` plus their own infrastructure SDK. EF adapter no longer references `Omni2FA.AspNetCore`. Hosts can pull just the EF adapter without dragging in ASP.NET endpoints.

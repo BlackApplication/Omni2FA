@@ -24,7 +24,6 @@ public class JwtPreAuthTokenIssuer : IPreAuthTokenIssuer {
     private readonly TokenValidationParameters _validationParameters;
     private readonly JwtSecurityTokenHandler _handler = new();
 
-    /// <summary>Construct with options bound from configuration.</summary>
     public JwtPreAuthTokenIssuer(IOptions<Omni2FaOptions> options) {
         _options = options.Value.PreAuth;
         var keyBytes = Encoding.UTF8.GetBytes(_options.SigningKey);
@@ -42,7 +41,6 @@ public class JwtPreAuthTokenIssuer : IPreAuthTokenIssuer {
         };
     }
 
-    /// <inheritdoc />
     public PreAuthTokenInfo Issue(Guid userId) {
         var now = DateTime.UtcNow;
         var expires = now.Add(_options.Ttl);
@@ -62,7 +60,6 @@ public class JwtPreAuthTokenIssuer : IPreAuthTokenIssuer {
         return new PreAuthTokenInfo(encoded, expires);
     }
 
-    /// <inheritdoc />
     public Guid? ValidateAndGetUserId(string token) {
         if (string.IsNullOrWhiteSpace(token)) {
             return null;

@@ -2,12 +2,18 @@
 
   <PropertyGroup>
     <PackageId>Omni2FA.AspNetCore.EntityFrameworkCore</PackageId>
-    <Description>Omni2FA — Entity Framework Core store adapter. Implements ITwoFactorMethodStore / ITwoFactorChallengeStore on EF Core. Works with any provider that has an EF Core provider (PostgreSQL, SQL Server, SQLite, MySQL, Oracle, …). Plug into your existing DbContext via modelBuilder.ApplyOmni2FaConfiguration().</Description>
+    <Description>Omni2FA — Entity Framework Core store adapter. Implements ITwoFactorMethodStore and ITwoFactorChallengeStore on EF Core. Works with any relational provider (PostgreSQL, SQL Server, SQLite, MySQL, Oracle). Plug into your existing DbContext via modelBuilder.ApplyOmni2FaConfiguration().</Description>
     <PackageTags>2fa;mfa;efcore;entity-framework;persistence</PackageTags>
   </PropertyGroup>
 
   <ItemGroup>
-    <ProjectReference Include="..\Omni2FA.AspNetCore\Omni2FA.AspNetCore.csproj" />
+    <PackageReference Include="Microsoft.EntityFrameworkCore" Version="8.0.10" />
+    <PackageReference Include="Microsoft.EntityFrameworkCore.Relational" Version="8.0.10" />
+    <PackageReference Include="Microsoft.Extensions.DependencyInjection.Abstractions" Version="8.0.2" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\..\Core\Omni2FA.Core\Omni2FA.Core.csproj" />
   </ItemGroup>
 
 </Project>
