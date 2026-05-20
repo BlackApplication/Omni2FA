@@ -1,0 +1,252 @@
+# Omni2FA — Architecture
+
+This document is **binding** for all code in this repository. Read it before opening a PR or starting on a new package. It exists to prevent the single mistake that would make Omni2FA expensive to maintain: leaking framework-specific logic into core, or business logic into framework adapters.
+
+---
+
+## 1. Core principle
+
+> **Framework-agnostic TS/C# cores. Thin framework-specific adapters.**
+
+The same rule applies on both sides of the stack:
+
+| Stack | Framework-agnostic core | Adapters |
+|-------|-------------------------|----------|
+| JavaScript | `@omni2fa/core` (`Core/js/`) | `@omni2fa/react`, `@omni2fa/react-mui` (`React/*`), future `@omni2fa/vue`, `@omni2fa/angular`, `@omni2fa/svelte`… |
+| .NET | `Omni2FA.Core`, `Omni2FA.WebAuthn` (`.Net/Core/`) | `Omni2FA.AspNetCore`, `Omni2FA.AspNetCore.EntityFrameworkCore` (`.Net/src/`) |
+
+Realistic split target: **~80% of UI-related logic lives in core**, ~20% is unavoidable framework-specific reactivity/lifecycle glue. We will not pretend the adapter is "just rendering" — but we will pretend it is **stateless logic-wise** and enforce that ruthlessly.
+
+---
+
+## 2. Boundary map (JavaScript side)
+
+### Lives in `@omni2fa/core`
+
+| Concern | Notes |
+|---------|-------|
+| **Login state machine** | Discriminated union: `Idle → PasswordSent → AwaitingMethodPick → ChallengeIssued → AwaitingVerify → Verified \| Failed`. Pure TS, no React/Vue imports. |
+| **Enrollment state machines** | One FSM per method kind (TOTP, Email, WebAuthn, RecoveryCodes). |
+| **WebAuthn marshaling** | Encode/decode challenge bytes (base64url ↔ `ArrayBuffer`), invoke `navigator.credentials.create() / .get()`. Browser APIs are not framework-specific. |
+| **HTTP client** | Typed wrapper over `fetch`. Generated from OpenAPI types. Maps HTTP errors to error codes (rule 9 in CODE_STYLE.md). |
+| **Token lifecycle** | Pre-auth token storage (via `IStorage`), expiry tracking, auto-invalidation on verify or expire. |
+| **Timers** | TOTP 30s window, email resend cooldown, pre-auth token countdown. Plain `setInterval` / `setTimeout`. |
+| **Error code → message mapping** | i18n-aware: `mapError(code, locale)`. |
+| **Validation** | `validateOtpFormat(input)`, `validateRecoveryCode(input)`. Pure functions. |
+| **Recovery code formatting** | Split into chunks of 4, generate downloadable text blob, copy-to-clipboard helper. |
+| **Storage abstraction** | `IStorage` interface (`get`, `set`, `remove`). Default implementations: `MemoryStorage`, `LocalStorageStorage`, `SessionStorageStorage`. |
+
+### Lives in framework packages (`@omni2fa/react`, future Vue/Angular/etc.)
+
+| Concern | Notes |
+|---------|-------|
+| **Reactivity binding** | React → `useSyncExternalStore`. Vue → `customRef` / `shallowRef`. Angular → `toSignal()` or RxJS `Observable`. |
+| **Lifecycle** | `useEffect` cleanup to unsubscribe from stores and stop timers on unmount. Vue `onUnmounted`, Angular `OnDestroy`. |
+| **Rendering** | JSX / SFC / templates. |
+| **DI / context** | `<Omni2FaProvider>` for React, `provide/inject` for Vue, root service for Angular — all wrap **one** core instance and pass it down. |
+| **Form integration** | Forwarded to host app's form library — we accept controlled values, never own form state. |
+
+### Lives in styled packages (`@omni2fa/react-mui`, future `@omni2fa/react-tailwind`)
+
+| Concern | Notes |
+|---------|-------|
+| **Visual components** | Pre-built dialogs/sections styled with the chosen design system. |
+| **Theme integration** | Reading theme from MUI ThemeProvider / Tailwind classes. |
+| **Localization passthrough** | UI strings → host's i18n library (`react-i18next`, etc.) — we don't bundle translations, only provide keys. |
+
+**Nothing else.** A styled package is a child of an adapter package — it imports from `@omni2fa/react` and **never** from `@omni2fa/core` directly.
+
+---
+
+## 3. Adapter contract: subscribe / getSnapshot
+
+Core exposes per-flow **stores** with exactly this shape:
+
+```ts
+interface Store<TState> {
+    subscribe(callback: () => void): () => void;  // returns unsubscribe
+    getSnapshot(): TState;                          // returns current immutable state
+    // Action methods are flow-specific: store.startEnroll(), store.submitCode(...), etc.
+}
+```
+
+This is the same shape React's `useSyncExternalStore` consumes natively, and it's trivial to wrap for Vue (`customRef`) or Angular (`toSignal()`). No core code depends on any framework.
+
+**React adapter example:**
+
+```ts
+// @omni2fa/react/src/useLoginFlow.ts
+export function useLoginFlow() {
+    const store = useOmni2FaContext().loginStore;
+    return useSyncExternalStore(store.subscribe, store.getSnapshot);
+}
+```
+
+That's the entire bridge. The hook is **stateless and logic-free** — all state, transitions, and effects happen inside `loginStore`.
+
+**Vue adapter example (future v1.x):**
+
+```ts
+// @omni2fa/vue/src/useLoginFlow.ts
+export function useLoginFlow() {
+    const store = useOmni2Fa().loginStore;
+    const state = shallowRef(store.getSnapshot());
+    const unsubscribe = store.subscribe(() => { state.value = store.getSnapshot(); });
+    onScopeDispose(unsubscribe);
+    return state;
+}
+```
+
+Same five lines per fra­mework, no business logic.
+
+---
+
+## 4. Forbidden in framework / styled packages
+
+If any of these appear in `@omni2fa/react`, `@omni2fa/react-mui`, or future Vue/Angular packages — it's a bug, move it to core.
+
+- ❌ `if (method.kind === 'Totp') { ... }` — kind-specific business branching. Belongs to FSM in core.
+- ❌ `setTimeout(..., 30_000)` for TOTP window. Belongs to TOTP timer in core.
+- ❌ String parsing/formatting of OTPs, recovery codes, base32 secrets. Belongs to helpers in core.
+- ❌ `fetch('/api/2fa/...')` direct calls. Belongs to HTTP client in core.
+- ❌ Hashing, encoding, base64url conversions. Belongs to core.
+- ❌ Validation regexes or rules. Belongs to `validateXxx` in core.
+- ❌ Error code translation (`'INVALID_CODE' → 'Wrong code'`). Belongs to `mapError` in core.
+- ❌ Mutable local state that survives re-render. State lives in stores, hooks only read snapshots.
+
+**Allowed in framework packages:**
+
+- ✅ Reading from a store via the subscribe/getSnapshot contract.
+- ✅ Calling action methods on a store (`store.submitCode(value)`).
+- ✅ `useEffect` for mount/unmount lifecycle.
+- ✅ Rendering JSX based on snapshot.
+- ✅ Passing controlled values from host's forms into store actions.
+
+---
+
+## 5. Code review checklist
+
+Before merging anything in `React/` (or future `Vue/`, `Angular/`):
+
+- [ ] Does this file import from `react` / `vue` / `@angular/core`?
+  - If yes → it must be in the framework package, not core.
+- [ ] Does this file import from `@omni2fa/core` only (no other framework)?
+  - If `@omni2fa/react-mui` imports `vue` — that's a bug.
+- [ ] Are there any `if (kind === '...')` branches, timers, regexes, or `fetch` calls?
+  - If yes → those moves to core, leaving the framework file as a thin subscriber.
+- [ ] Does the component own any state that isn't `useSyncExternalStore` output?
+  - If yes — challenge whether it should be in core.
+
+For the .NET side (`Omni2FA.AspNetCore.*`):
+
+- [ ] Does this file import `Microsoft.EntityFrameworkCore` outside `Omni2FA.AspNetCore.EntityFrameworkCore`?
+  - If yes → bug, business logic must not couple to a specific store.
+- [ ] Does `Omni2FA.Core` reference `Microsoft.AspNetCore.*` packages?
+  - If yes → bug, core stays framework-agnostic.
+
+---
+
+## 6. Cross-package dependency graph
+
+### JavaScript
+
+```
+@omni2fa/core          (NO peer deps on any UI framework)
+    ↑
+    │   imports allowed
+    │
+@omni2fa/react         (peer: react)
+    ↑
+@omni2fa/react-mui     (peer: react, @mui/material)
+
+@omni2fa/core
+    ↑
+@omni2fa/vue           (peer: vue)              [future v1.x]
+
+@omni2fa/core
+    ↑
+@omni2fa/angular       (peer: @angular/core)    [future v1.x]
+```
+
+Rules:
+- Every adapter imports from `@omni2fa/core` and from **its own** UI framework only.
+- Styled packages import from their adapter (`@omni2fa/react-mui` from `@omni2fa/react`), never from core directly.
+- Adapters never import from each other (`@omni2fa/react` cannot import from `@omni2fa/vue`).
+
+### .NET
+
+Physical layout inside `.Net/` reflects the core/adapter boundary directly:
+
+```
+.Net/
+├── Omni2FA.sln
+├── Core/                                  ← framework-agnostic backbone
+│   ├── Omni2FA.Core/
+│   └── Omni2FA.WebAuthn/
+└── src/                                   ← ASP.NET-specific adapters
+    ├── Omni2FA.AspNetCore/
+    └── Omni2FA.AspNetCore.EntityFrameworkCore/
+```
+
+Project dependency graph:
+
+```
+Omni2FA.Core                              (in .Net/Core/ — no AspNetCore, no EF, no HTTP)
+    ↑
+Omni2FA.WebAuthn                          (in .Net/Core/ — Omni2FA.Core + Fido2NetLib only)
+    ↑
+Omni2FA.AspNetCore                        (in .Net/src/ — Omni2FA.Core + Omni2FA.WebAuthn)
+    ↑
+Omni2FA.AspNetCore.EntityFrameworkCore    (in .Net/src/ — Omni2FA.AspNetCore + EF Core)
+```
+
+Rules:
+- `Omni2FA.Core` and `Omni2FA.WebAuthn` live in **`.Net/Core/`**. They reference no ASP.NET, no EF, no HTTP — pure domain + interfaces + standards-based crypto.
+- `.Net/src/` is **only for ASP.NET-Core-coupled** packages. If a project depends on `Microsoft.AspNetCore.*`, it lives in `src/`. If not, it lives in `Core/`.
+- `Omni2FA.sln` lives in `.Net/` root and references projects from both `Core/` and `src/`.
+- A future `Omni2FA.Dapper` store adapter would sit next to the EF one in `.Net/src/`. A future `Omni2FA.MongoDB` adapter — same shape.
+- A future non-ASP.NET .NET adapter (gRPC, MAUI auth flow, etc.) would also land in `.Net/src/` as its own project. The Core/ backbone is unchanged.
+
+> **Why split `.Net/Core/` and `.Net/src/`?** Same reason as the JS side: framework-agnostic code is held to a different review bar (no business-logic leaks, dependency surface kept minimal). Putting them in physically separate folders makes accidental ASP.NET-imports in `Omni2FA.Core` visible during code review at the path level, before reading a single line.
+
+> **Why is JS-core in `Core/js/` but .NET-core in `.Net/Core/` instead of `Core/dotnet/`?** Asymmetry by design: `Core/js/` is shared between **multiple JS UI families** (React, Vue, Angular...) so it surfaces to the top. `.Net/Core/` is the backbone for a single backend family (ASP.NET Core, currently), so it nests inside that family's folder. This keeps `.Net/Omni2FA.sln` self-contained — open one solution file and the whole .NET tree is reachable in Solution Explorer.
+
+---
+
+## 7. Storage abstraction
+
+Token persistence (pre-auth token survival across page reloads, "remember device" cookies) is a runtime concern, not a framework one. Core defines:
+
+```ts
+interface IStorage {
+    get(key: string): string | null;
+    set(key: string, value: string): void;
+    remove(key: string): void;
+}
+```
+
+Core ships three implementations:
+- `MemoryStorage` — default, lost on reload. Safe for SSR.
+- `LocalStorageStorage` — persistent across tabs and reloads. Browser only.
+- `SessionStorageStorage` — persistent within a tab. Browser only.
+
+Framework packages **don't pick a storage** — they accept whichever the host passes to `<Omni2FaProvider storage={...} />`. Default is `MemoryStorage` if not specified.
+
+On the .NET side the equivalent abstraction is `IPreAuthTokenSink` (where to issue / how to validate the JWT). Default = stateless JWT signed by app key. Pluggable to redis/database if the host needs revocation.
+
+---
+
+## 8. Why this matters
+
+A common failure mode for "universal" libraries: framework adapter v1 accidentally absorbs business logic ("just a quick if for Email"), and by the time someone tries to add Vue support, half the FSM lives in React hooks. Porting then means rewriting, not wrapping.
+
+Omni2FA explicitly chooses the harder path: write the FSM once, prove it works with two adapters (React-MUI in v0.5, React-Tailwind in v1.3) **before v1.0 is frozen**, and have a code review checklist that catches drift.
+
+This document is the contract for that choice.
+
+---
+
+## 9. Change log
+
+- **2026-05-20** — initial draft from session 1. Captures the framework-agnostic core / thin adapter principle as a binding rule, with boundary map, code review checklist, and dependency graph.
+- **2026-05-20** — `.NET` physical layout updated to mirror the boundary: `Omni2FA.Core` and `Omni2FA.WebAuthn` moved from `.Net/src/` to `.Net/Core/`. `.Net/src/` now holds only ASP.NET-coupled adapters. `Omni2FA.sln` lives in `.Net/` root, references both folders. Rationale: makes the framework-agnostic boundary visible at the path level during code review.

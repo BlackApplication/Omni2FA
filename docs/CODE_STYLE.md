@@ -85,7 +85,19 @@ This is a **living document**. Whenever a new rule is agreed upon during a sessi
   - Domain validation failure → typed error / result.
   - Programmer error / contract violation → exception.
 
-## 10. Tests (future)
+## 10. Framework-agnostic core (binding)
+
+This rule has its own document — see [`ARCHITECTURE.md`](ARCHITECTURE.md). Summary, in case you skim:
+
+- `@omni2fa/core` and `Omni2FA.Core` are **framework-agnostic**. No `react`, no `vue`, no `@angular/core` imports in JS core. No `Microsoft.AspNetCore.*` references in .NET core.
+- Framework / styled packages (`@omni2fa/react`, `@omni2fa/react-mui`, `Omni2FA.AspNetCore`, etc.) are **thin adapters**: they subscribe to core stores and render — no business logic, no timers, no `fetch`, no kind-specific branching, no validation.
+- The adapter contract is `subscribe(cb) → unsub` + `getSnapshot(): TState`. Every framework wraps it in its own reactivity primitive (`useSyncExternalStore` / `customRef` / `toSignal`).
+- Storage (where to keep pre-auth tokens) is abstracted behind `IStorage` in core. Framework packages don't pick a backend.
+- Cross-package dependency graph is enforced in code review — see `ARCHITECTURE.md` §6.
+
+If you're about to put a `setTimeout`, a `fetch`, an `if (kind === 'Totp')`, or a validation regex in a React/Vue/Angular file — **stop**, that belongs in core.
+
+## 11. Tests (future)
 
 - Tests live in `.Net/tests/` (mirrors `src/` layout) and per-package `__tests__/` in JS workspaces.
 - No mocking of databases for integration tests — use an in-memory or container-backed real provider.
@@ -104,3 +116,4 @@ This is a **living document**. Whenever a new rule is agreed upon during a sessi
   - Audit is pluggable (`IOmni2FaAuditSink`), opt-in. Default = log to `ILogger`. No null refs if host doesn't register one.
   - Account recovery (lost methods + lost recovery codes) is out of scope — host application's policy. Omni2FA exposes a "reset all 2FA for user X" primitive only.
 - **2026-05-20** — versioning model decided: **coordinated minor/major across all packages, independent patches** (Microsoft.AspNetCore-style). Packages on the same `MAJOR.MINOR.*` are guaranteed compatible — no compatibility matrix. See `docs/ROADMAP.md` "Versioning model" for examples. Earlier "independent per package" stance is retracted as it conflicted with milestone-based roadmap.
+- **2026-05-20** — added rule 10 "Framework-agnostic core (binding)" pointing at the new `docs/ARCHITECTURE.md`. Tests rule renumbered to 11. The architecture document is binding: framework adapters are stateless subscribers, business logic lives in core only.

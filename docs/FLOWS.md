@@ -90,6 +90,8 @@ sequenceDiagram
 2. Browser performs the ceremony via `navigator.credentials.create()`.
 3. `confirm` posts the attestation; server validates with Fido2NetLib and persists.
 
+> ⚠️ **WebAuthn requires HTTPS on any non-localhost origin.** See "Common deployment gotchas" at the bottom of this document.
+
 ### Recovery codes — generated on first method enrollment
 
 When a user enrolls their **first** 2FA method (regardless of kind), the server also generates N recovery codes (default 10), hashes them, persists hashes, and returns the plaintext codes **in the enrollment response, exactly once**. The frontend MUST show them and instruct the user to save them — no second chance.
@@ -149,7 +151,43 @@ Default implementation writes structured `ILogger` records. Host applications ca
 
 ---
 
-## 6. What lives where
+## 6. Common deployment gotchas
+
+A running list of "everything works on localhost, breaks in staging" issues. Read this before your first non-local deploy.
+
+### WebAuthn requires HTTPS off-localhost
+
+The WebAuthn spec carves out exactly one secure-context exception: `localhost` (and `127.0.0.1`). **Every other origin must be served over HTTPS** for `navigator.credentials.create()` and `navigator.credentials.get()` to even run.
+
+**Configurations that will fail** (very common first-deploy traps):
+- Staging on a raw IP — `http://10.0.0.5/`, `http://192.168.x.y/`.
+- Staging on a custom hostname without TLS — `http://staging.myapp.dev/`, `http://app.local/`.
+- A reverse proxy that terminates TLS but forwards as `http://` to the app, and the app generates `rp.id` from the request scheme instead of configured value.
+
+**Symptoms**:
+- Browser throws `SecurityError` or `NotAllowedError` from `navigator.credentials.create()`.
+- Server-side: Fido2NetLib rejects the attestation with relying-party-id mismatch.
+
+**Fix**:
+- Terminate TLS at the edge (Let's Encrypt + Caddy / nginx / cloud LB).
+- Set `Omni2Fa.WebAuthn.RelyingPartyId` explicitly in configuration to your public hostname (e.g. `staging.myapp.dev`), not derived from request.
+- For local LAN testing without TLS — use a tunnel (Cloudflare Tunnel, ngrok) that gives you a `https://*.trycloudflare.com` URL and points at your local app.
+
+### SameSite cookies + cross-site frontend
+
+If your React SPA is on `app.example.com` and the .NET API is on `api.example.com`, the pre-auth cookie/session must be `SameSite=None; Secure` to round-trip. That, in turn, requires HTTPS on the API host. Same trap as above.
+
+### Reverse proxy: forward original scheme
+
+If a reverse proxy (nginx, IIS ARR, Cloudfront) sits in front of the .NET app, configure forwarded headers (`X-Forwarded-Proto`, `X-Forwarded-Host`) in ASP.NET, or the pre-auth token's `iss`/`aud` may be generated against the wrong scheme/host and rejected on verify.
+
+### Email OTP and SPF/DKIM/DMARC
+
+Production SMTP without proper authentication records → emails land in spam → users report "I never got the code". Configure SPF/DKIM/DMARC for your sending domain **before** flipping email 2FA on for real users.
+
+---
+
+## 7. What lives where
 
 | Concern | Host application | Omni2FA |
 |---------|------------------|---------|

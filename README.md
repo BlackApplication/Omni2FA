@@ -64,10 +64,12 @@ Omni2FA/
 │   ├── react/       # @omni2fa/react — headless hooks + base components
 │   └── react-mui/   # @omni2fa/react-mui — ready dialogs styled with MUI
 │
-├── .Net/
-│   └── src/
-│       ├── Omni2FA.Core/                          # Models, interfaces, services (no I/O)
-│       ├── Omni2FA.WebAuthn/                      # WebAuthn ceremony (Fido2NetLib)
+├── .Net/                              # Self-contained .NET solution
+│   ├── Omni2FA.sln
+│   ├── Core/                          # Framework-agnostic .NET backbone
+│   │   ├── Omni2FA.Core/              # Models, interfaces, services (no I/O, no ASP.NET, no EF)
+│   │   └── Omni2FA.WebAuthn/          # WebAuthn ceremony (Fido2NetLib only)
+│   └── src/                           # ASP.NET-specific adapters
 │       ├── Omni2FA.AspNetCore/                    # Endpoints, DI, filters, email
 │       └── Omni2FA.AspNetCore.EntityFrameworkCore/ # Optional EF Core store adapter
 │
@@ -149,7 +151,7 @@ Same React component works against a Python backend that implements the Omni2FA 
 | Trusted devices   | Planned v1.1 | "Remember this browser" — skip 2FA on known devices         |
 | SMS               | v2+ (demand-driven) | Carrier cost & complexity — opt-in pluggable sender |
 
-See [`docs/ROADMAP.md`](docs/ROADMAP.md) for the full version plan and [`docs/FLOWS.md`](docs/FLOWS.md) for login/enrollment/recovery flow diagrams.
+See [`docs/ROADMAP.md`](docs/ROADMAP.md) for the full version plan, [`docs/FLOWS.md`](docs/FLOWS.md) for login/enrollment/recovery flow diagrams, and [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) for the framework-agnostic core / thin adapter contract.
 
 ---
 

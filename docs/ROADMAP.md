@@ -24,7 +24,7 @@ Status legend: ⬜ planned · 🟦 in progress · ✅ shipped
 
 ## v0.x — pre-alpha (current)
 
-The goal is one method working end-to-end across .NET + React + EF before broadening.
+The goal is one method working end-to-end across .NET + React + EF before broadening. Every `v0.x` ships an updated working **example** in `examples/full/` — see "Examples roadmap" below.
 
 | Version | Capability | Scope | Status |
 |---------|-----------|-------|--------|
@@ -47,6 +47,7 @@ The goal is one method working end-to-end across .NET + React + EF before broade
 |---------|-----------|-------|--------|
 | **v1.1** | Trusted devices ("remember this browser") | Opt-in. Bound to user-agent + cookie + server-side device record. Configurable TTL. | ⬜ |
 | **v1.2** | Angular package | `@omni2fa/angular` — same headless logic from `@omni2fa/core/js`, Angular components wrapping it. | ⬜ |
+| **v1.3** | `@omni2fa/react-tailwind` | Drop-in 2FA UI on Tailwind + Headless UI. Mirrors `@omni2fa/react-mui` feature-for-feature; same `@omni2fa/react` headless hooks underneath. Validates that the headless core isn't MUI-shaped. | ⬜ |
 
 ## v2.0+ — if demand justifies it
 
@@ -66,6 +67,34 @@ These are **not** going into Omni2FA, even later. They belong to the host applic
 - **User management UI.** Profile/settings pages are yours; we only provide the 2FA section.
 
 ---
+
+## Examples roadmap
+
+A single growing reference app lives at `examples/full/`. It is **updated with every v0.x release** so the example always demonstrates the latest capability set.
+
+```
+examples/
+└── full/
+    ├── backend/         ASP.NET Core minimal API + EF Core + SQLite (Postgres on v1.0)
+    │   ├── Program.cs
+    │   ├── AppDbContext.cs
+    │   └── appsettings.json
+    └── frontend/        Vite + React + MUI (raw headless on v0.1-v0.4, switches to react-mui at v0.5)
+        ├── src/
+        └── package.json
+```
+
+| Version | Example state |
+|---------|---------------|
+| **v0.1** | Skeleton + TOTP enroll/login. Run with `dotnet run` + `npm run dev`. SQLite, no external services. **This is the first sandbox you can poke.** |
+| **v0.2** | + Email OTP. Local SMTP catcher (mailhog/papercut in docker-compose) for testing emails. |
+| **v0.3** | + WebAuthn enrollment & login. Works on localhost without HTTPS (per spec). Any non-localhost origin needs TLS — see `docs/FLOWS.md` → "Common deployment gotchas". |
+| **v0.4** | + Recovery codes UX. Generation modal, use-on-login flow. |
+| **v0.5** | Frontend swaps raw headless usage for `@omni2fa/react-mui` ready dialogs. Same backend. |
+| **v0.6** | + audit hook example (logs to console). + rate limit visibly enforced. |
+| **v1.0** | Production-like: docker-compose with Postgres, i18n (en + ru), screenshots, optional video walkthrough, README polish. |
+
+Post-v1.0, when additional UI packages (Tailwind, Angular) ship, we'll likely fork to a few variants like `examples/full-tailwind/`, `examples/full-angular/`. Until then — single example, single source of truth.
 
 ## Cross-stack guarantees (binding from v1.0)
 
