@@ -12,13 +12,25 @@ Omni2FA bundles **TOTP** (authenticator apps), **Email OTP**, and **WebAuthn** (
 
 ## Who this is for
 
-**Self-hosted apps that own their user database.** If you run your own auth — your own `User` table, your own login endpoint — Omni2FA bolts 2FA onto it. If you already use **Auth0, Clerk, Cognito, Firebase Auth, Supabase Auth** or any other managed identity provider, your provider already ships 2FA — use theirs.
+**Self-hosted apps that own their user database** — and want a richer 2FA story than what their auth framework provides out of the box.
+
+✅ **Great fits**
+
+- **ASP.NET Core Identity** apps. Identity ships TOTP and that's it (single secret per user, no email OTP, no WebAuthn, no UI). Omni2FA layers on top — plug into your `UserManager`, keep your login flow, gain multi-method 2FA.
+- **Custom JWT / cookie auth** rolled by hand or with a small framework — same story, you own the user table, we handle 2FA.
+- **Django, Rails, Express, FastAPI** apps where you control the user model. Backend adapter for non-.NET stacks lands in v2+; the React/Angular frontend will work against any backend that implements the OpenAPI contract once it's frozen at v1.0.
+
+❌ **Not for you if**
+
+- You use a **managed cloud identity provider** — **Auth0, Clerk, Cognito, Firebase Auth, Supabase Auth, Okta, WorkOS**. Your provider already ships 2FA in its dashboard. Use theirs.
+
+> ASP.NET **Core Identity** is *not* a managed provider — it's a library inside your app. It's a great fit. The "Auth0/etc." exclusion is about *cloud-hosted* identity, where you don't own the user record.
 
 ---
 
 ## Why this exists
 
-> I built 2FA from scratch three times across three different products. Omni2FA exists so I — and you — never have to do it a fourth time.
+> I built 2FA from scratch two times across two different products. Omni2FA exists so I — and you — never have to do it a third time.
 
 Existing libraries do *pieces*: TOTP math, WebAuthn ceremony, OTP generation. Stitching them into a real product — multi-method per user, login orchestration, enrollment UX, email delivery, persistence — is on you every time.
 
@@ -149,6 +161,17 @@ See [`docs/ROADMAP.md`](docs/ROADMAP.md) for the full version plan and [`docs/FL
 - ⚡ **Rate limiting** out of the box — default 20 attempts/minute/IP on verify endpoints. Configurable, with a sensible-by-default brute-force ceiling that won't annoy real users.
 - 📜 **Audit sink** — optional `IOmni2FaAuditSink` interface for enrollment, verify, and recovery events. Plug into your existing audit pipeline, or skip it and we just log to `ILogger`.
 - 🌍 **i18n-ready** — email templates and UI strings translate via standard mechanisms (`IStringLocalizer<T>` on .NET, `react-i18next` on the React side).
+
+---
+
+## Explicitly out of scope
+
+These are **not** going into Omni2FA, even later. They belong to the host application:
+
+- **Account recovery when a user loses everything** (methods + recovery codes). This is a business decision — support ticket, admin override, trusted contact, identity proofing. Omni2FA only provides the primitive (admin can call "reset all 2FA for user X" via the API), the *policy* around it is yours.
+- **Password authentication itself.** Omni2FA layers on top of your existing login. You verify the password; we handle everything after.
+- **Session management / JWT issuance.** We return "verified, here is the user id" — your app mints its session.
+- **User management UI.** Profile/settings pages are yours; we only provide the 2FA section.
 
 ---
 

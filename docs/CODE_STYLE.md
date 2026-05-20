@@ -103,3 +103,4 @@ This is a **living document**. Whenever a new rule is agreed upon during a sessi
   - Default rate limit: **20 attempts / minute / IP** on verify endpoints (mirrors QRpark proven config). Configurable.
   - Audit is pluggable (`IOmni2FaAuditSink`), opt-in. Default = log to `ILogger`. No null refs if host doesn't register one.
   - Account recovery (lost methods + lost recovery codes) is out of scope — host application's policy. Omni2FA exposes a "reset all 2FA for user X" primitive only.
+- **2026-05-20** — versioning model decided: **coordinated minor/major across all packages, independent patches** (Microsoft.AspNetCore-style). Packages on the same `MAJOR.MINOR.*` are guaranteed compatible — no compatibility matrix. See `docs/ROADMAP.md` "Versioning model" for examples. Earlier "independent per package" stance is retracted as it conflicted with milestone-based roadmap.

@@ -1,6 +1,22 @@
 # Omni2FA — Roadmap
 
-Versioning is **independent per package** (no monorepo-wide lockstep). The table below tracks the **overall library milestones** — when each capability lands across the .NET and React packages.
+## Versioning model: coordinated minor/major, independent patches
+
+All publishable packages share the same **major.minor** version. They are released together under a single library milestone (e.g. `v0.3.0`). **Patches** (`x.y.Z`) ship independently per package — a bugfix in `@omni2fa/react-mui` doesn't bump anything else.
+
+**Compatibility rule** (no matrix needed):
+- During `0.x` — packages on the same `0.MAJOR.*` are guaranteed compatible. Mixing `0.3.x` and `0.2.x` is unsupported.
+- From `1.0` onward — packages on the same `MAJOR.*.*` are compatible (standard semver).
+
+**Examples**
+
+✅ `@omni2fa/core@0.3.0` + `@omni2fa/react@0.3.4` + `Omni2FA.Core@0.3.1` → all on 0.3, compatible.
+❌ `@omni2fa/core@0.3.0` + `@omni2fa/react@0.2.7` → different minors during 0.x, unsupported.
+✅ `@omni2fa/core@1.2.0` + `@omni2fa/react@1.5.3` + `Omni2FA.Core@1.0.1` → all on 1.x, compatible.
+
+This is the same model used by `Microsoft.AspNetCore.*`, NestJS, and Nx. No compatibility matrix to maintain; users just align major.minor.
+
+The table below tracks the **library milestones** — when each capability lands across all packages, released as a single coordinated `vMAJOR.MINOR.0` tag.
 
 Status legend: ⬜ planned · 🟦 in progress · ✅ shipped
 
@@ -53,6 +69,6 @@ These are **not** going into Omni2FA, even later. They belong to the host applic
 
 ## Cross-stack guarantees (binding from v1.0)
 
-- The OpenAPI contract in `Core/protocol/` is the source of truth.
-- Backwards-compatible breaks bump major. Field additions are minor.
-- Any backend that implements the contract works with any frontend that implements the contract.
+- The OpenAPI contract in `Core/protocol/` is the source of truth. Its version is the library version — `Core/protocol/omni2fa.openapi.yaml` declares `info.version: x.y.0` matching the library milestone.
+- Contract-breaking changes bump major. Field additions / new optional endpoints bump minor.
+- Any backend that implements the contract at version `X.Y` works with any frontend that implements the contract at version `X.Y` (or any patch thereof).
