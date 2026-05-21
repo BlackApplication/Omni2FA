@@ -41,17 +41,30 @@ The goal is one method working end-to-end across .NET + React + EF before broade
 |---------|-----------|--------|
 | **v1.0** | All v0.x methods + full docs + e2e example + multi-locale UI strings + published to npm/NuGet under stable channel. | ⬜ |
 
-## v1.x — quality of life
+## v1.x — broaden the ecosystem
+
+Angular is part of v1.0 alongside React, so the cross-stack claim is real at first public release (two officially supported frontends, one backend). v1.1 and v1.2 then add the two largest backend ecosystems (Node.js, Python) before any other expansion.
 
 | Version | Capability | Notes | Status |
 |---------|-----------|-------|--------|
-| **v1.1** | Trusted devices ("remember this browser") | Opt-in. Bound to user-agent + cookie + server-side device record. Configurable TTL. | ⬜ |
-| **v1.2** | Angular package | `@omni2fa/angular` — same headless logic from `@omni2fa/core/js`, Angular components wrapping it. | ⬜ |
-| **v1.3** | `@omni2fa/react-tailwind` | Drop-in 2FA UI on Tailwind + Headless UI. Mirrors `@omni2fa/react-mui` feature-for-feature; same `@omni2fa/react` headless hooks underneath. Validates that the headless core isn't MUI-shaped. | ⬜ |
+| **v1.1** | **Node.js / TypeScript backend** (`@omni2fa/node`) | Express, Fastify, NestJS adapters. Reuses `@omni2fa/core` for shared types and validation — same package powers Node bek and JS frontend, unique to this stack. | ⬜ |
+| **v1.2** | **Python backend** (`omni2fa-python`) | FastAPI primary, Django/Flask via thin wrappers. Implements the same OpenAPI contract as .NET. | ⬜ |
+| **v1.3** | Trusted devices ("remember this browser") | Opt-in. Bound to user-agent + cookie + server-side device record. Configurable TTL. | ⬜ |
+| **v1.4** | Vue package (`@omni2fa/vue`) | Headless composables wrapping `@omni2fa/core`. | ⬜ |
+| **v1.5** | `@omni2fa/react-tailwind` | Drop-in 2FA UI on Tailwind + Headless UI. Mirrors `@omni2fa/react-mui` feature-for-feature. Validates the headless core isn't MUI-shaped. | ⬜ |
+| **v1.6** | Pluggable pre-auth transport | Opt-in cookie transport (`Set-Cookie: HttpOnly; Secure; SameSite`) alongside the default Bearer header. Host picks via `o.PreAuth.Transport`. Every backend adapter implements both; OpenAPI declares both `bearerAuth` and `cookieAuth` security schemes as parallel options. Recommended when the host's main session is also cookie-based. | ⬜ |
 
-## v2.0+ — if demand justifies it
+## v2.0+ — community-driven extras
 
-- Python backend (`omni2fa-python`) — same OpenAPI contract, FastAPI/Starlette adapter.
+Things explicitly **not** done by the Omni2FA team — open to community PRs via [`docs/PORTING_GUIDE.md`](PORTING_GUIDE.md):
+
+- Java / Kotlin Spring Boot backend.
+- Go backend.
+- PHP / Ruby / Rust / Elixir backends.
+- Svelte / Solid frontend adapters.
+
+Things on the official roadmap but demand-gated:
+
 - SMS OTP — pluggable sender (Twilio, MessageBird, internal SMPP). Open question: provider auto-rotation.
 - Push notifications via FCM / APNs — depends on app having mobile presence.
 

@@ -1,7 +1,7 @@
 # Omni2FA
 
-> Drop-in **multi-method two-factor authentication** for any stack.
-> One contract — pick your frontend, pick your backend, plug it in.
+> Drop-in **multi-method two-factor authentication** for self-hosted apps.
+> One OpenAPI contract — official adapters for popular stacks, community PRs welcome for the rest.
 
 [![License](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
 [![Status](https://img.shields.io/badge/status-WIP-orange.svg)](#status)
@@ -18,7 +18,7 @@ Omni2FA bundles **TOTP** (authenticator apps), **Email OTP**, and **WebAuthn** (
 
 - **ASP.NET Core Identity** apps. Identity ships TOTP and that's it (single secret per user, no email OTP, no WebAuthn, no UI). Omni2FA layers on top — plug into your `UserManager`, keep your login flow, gain multi-method 2FA.
 - **Custom JWT / cookie auth** rolled by hand or with a small framework — same story, you own the user table, we handle 2FA.
-- **Django, Rails, Express, FastAPI** apps where you control the user model. Backend adapter for non-.NET stacks lands in v2+; the React/Angular frontend will work against any backend that implements the OpenAPI contract once it's frozen at v1.0.
+- **Node.js, Python, and other non-.NET backends** where you control the user model. Official adapters for Node.js (Express/Fastify/NestJS) and Python (FastAPI) ship in v1.1 and v1.2. Other stacks via community PRs — see [Supported stacks](#supported-stacks).
 
 ❌ **Not for you if**
 
@@ -45,7 +45,7 @@ Omni2FA gives you the **whole loop** as a library:
 ## Goals
 
 - ⚡ **Minutes to integrate.** Add the packages, configure SMTP and a store, render one section in your profile page — done.
-- 🔌 **Mix and match stacks.** React frontend with .NET backend today. Add Python or Angular tomorrow — the contract stays the same.
+- 🔌 **Mix and match supported stacks.** Officially supported backends and frontends are listed in [Supported stacks](#supported-stacks). Anything not on the list can be added by implementing the OpenAPI contract — community PRs welcome.
 - 🧱 **Persistence is yours.** We define the storage interface and ship an optional EF Core adapter. You can swap in Mongo, Dapper, or anything else.
 - 🧩 **Customize the surface, not the core.** Forms, themes, copy, callbacks — open. Crypto, challenge state machine, validation — closed.
 - 🔒 **Standard primitives only.** Built on `OtpNet`, `Fido2NetLib`, `MailKit`, `@simplewebauthn/*`. No hand-rolled crypto.
@@ -136,7 +136,7 @@ That's it. The component renders the method list, enrollment dialogs, removal fl
 
 ### Mix and match
 
-Same React component works against a Python backend that implements the Omni2FA OpenAPI contract. Same .NET backend works with an Angular frontend that does. The contract is the integration point — not the language.
+Within the [officially supported stacks](#supported-stacks), pick any combination — the same React/Angular/Vue component works against any official backend (.NET, Node.js, Python), because all of them implement the same OpenAPI contract. Outside the official list, anyone can add an adapter by implementing the contract.
 
 ---
 
@@ -148,10 +148,44 @@ Same React component works against a Python backend that implements the Omni2FA 
 | Email OTP         | Planned v0.2 | Server-issued 6-digit code, sent via configured SMTP        |
 | WebAuthn          | Planned v0.3 | Passkeys & hardware keys — multiple credentials per user    |
 | Recovery codes    | Planned v0.4 | One-time backup codes, generated on first method enrollment |
-| Trusted devices   | Planned v1.1 | "Remember this browser" — skip 2FA on known devices         |
+| Trusted devices   | Planned v1.3 | "Remember this browser" — skip 2FA on known devices         |
 | SMS               | v2+ (demand-driven) | Carrier cost & complexity — opt-in pluggable sender |
 
 See [`docs/ROADMAP.md`](docs/ROADMAP.md) for the full version plan, [`docs/FLOWS.md`](docs/FLOWS.md) for login/enrollment/recovery flow diagrams, [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) for the framework-agnostic core / thin adapter contract, and [`Core/protocol/`](Core/protocol/) for the OpenAPI 3.1 contract that defines every endpoint and DTO across all stacks.
+
+---
+
+## Supported stacks
+
+Official adapters are maintained and tested by the Omni2FA team. Community adapters are contributed and maintained by users — they pass the conformance test suite but receive no first-party guarantees.
+
+### Backends
+
+| Stack | Status |
+|-------|--------|
+| **.NET** — ASP.NET Core | ✅ Official, v1.0 |
+| **Node.js / TypeScript** — Express, Fastify, NestJS | 🛠 Official, v1.1 |
+| **Python** — FastAPI (Django, Flask via community adapter) | 🛠 Official, v1.2 |
+| Java / Kotlin — Spring Boot | 🤝 Community-driven, v2+ |
+| Go | 🤝 Community-driven, v2+ |
+| Anything else (PHP, Ruby, Rust, …) | 📜 Open to community PRs |
+
+### Frontends
+
+| Stack | Status |
+|-------|--------|
+| **React** | ✅ Official, v1.0 — headless hooks (`@omni2fa/react`) + ready Material UI dialogs (`@omni2fa/react-mui`) |
+| **Angular** | ✅ Official, v1.0 — headless services (`@omni2fa/angular`) |
+| **Vue** | 🛠 Official, v1.x — headless composables (`@omni2fa/vue`) |
+| Anything else (Svelte, Solid, …) | 📜 Open to community PRs |
+
+### Adding a new adapter
+
+The [OpenAPI contract](Core/protocol/omni2fa.openapi.yaml) is the only thing an adapter has to implement. From v1.0, [`docs/PORTING_GUIDE.md`](docs/PORTING_GUIDE.md) walks through:
+
+1. Generating types from the OpenAPI spec for your language.
+2. Implementing the endpoints and the conformance test suite.
+3. Submitting a PR to be listed as a community adapter (or proposed for promotion to official if maintenance commitment is realistic).
 
 ---
 
