@@ -76,32 +76,68 @@ Polish items that surfaced while shipping v0.1 and have a clear target version. 
 
 ### Host session-token client API — target **v0.6**
 
-**Problem.** `Omni2FaClient` currently knows only about its own pre-auth token (`setPreAuthToken` / `getPreAuthToken`). For host-session endpoints (`/methods`, `/enroll/*`) the host must attach its own session JWT — which today means writing ~15-25 lines of custom `fetch` wrapper. See `examples/full/frontend/src/omni2fa.ts` for the workaround.
+**Problem.** `Omni2FaClient` currently knows only about its own pre-auth token (`setPreAuthToken` / `getPreAuthToken`). For host-session endpoints (`/methods`, `/enroll/*`) the host must attach its own session credential — today that means writing ~15-25 lines of custom `fetch` wrapper. See `examples/full/frontend/src/omni2fa.ts` for the workaround.
 
-**Proposed fix.** Add symmetric API to `Omni2FaClient`:
+**Design principle.** Three host-auth styles exist in the wild; the client must support all of them without forcing one shape:
+
+| Host style | How they store session | What we expose |
+|---|---|---|
+| Bearer JWT in JS (most common) | `localStorage` / `sessionStorage` / in-memory React state | **Sugar:** `setSessionToken()` / `clearSessionToken()` / `getSessionToken()` |
+| HttpOnly cookie (the "no-XSS-leak" school) | Cookie set by host, invisible to JS | **Sugar:** new config `credentials: 'include'`. The browser attaches the cookie; we just opt in |
+| SSO, signing, multi-tenant routing, custom headers | Anything else | **Escape hatch:** existing `fetch` config option. The host hands us a `fetch` that does whatever it needs — already supported |
+
+The Bearer sugar is just ergonomic shorthand over the same `fetch` slot. Removing `fetch` would be a regression — keep it as the universal escape hatch.
+
+**Proposed API.**
 
 ```ts
-omni.client.setSessionToken(loginResponse.sessionToken);
-omni.client.clearSessionToken();
+export interface Omni2FaClientConfig {
+    baseUrl: string;
+    storage?: IStorage;
+    fetch?: typeof fetch;                              // escape hatch — unchanged
+    credentials?: 'omit' | 'same-origin' | 'include'; // NEW — for cookie-based auth
+    preAuthStorageKey?: string;
+    sessionStorageKey?: string;                        // NEW — symmetric with preAuthStorageKey
+}
+
+export interface IOmni2FaClient {
+    setPreAuthToken(token: string | null): void;       // existing
+    getPreAuthToken(): string | null;
+
+    setSessionToken(token: string | null): void;       // NEW
+    getSessionToken(): string | null;
+
+    // ... endpoint methods ...
+}
 ```
 
-Internally the client picks which token to attach per request:
-- `/challenge/*` → pre-auth token (existing behavior)
-- `/methods/*`, `/enroll/*` → session token (new behavior)
+**Internal token routing.** Existing pre-auth middleware blindly attaches the pre-auth token. Change it to pick the right token per request URL:
 
-Reflects in the OpenAPI security schemes already declared (`HostSession` vs `PreAuth`).
+```ts
+onRequest: ({ request }) => {
+    if (request.headers.has('Authorization')) return request;  // host's custom fetch wins
+    const isPreAuthEndpoint = request.url.includes('/challenge/');
+    const token = isPreAuthEndpoint ? this.getPreAuthToken() : this.getSessionToken();
+    if (token) request.headers.set('Authorization', `Bearer ${token}`);
+    return request;
+}
+```
+
+URL string-match is sufficient — endpoint paths are frozen in the OpenAPI contract.
 
 **Then the example shrinks to:**
 
 ```ts
+// omni2fa.ts
 export const omni = createOmni2Fa({ baseUrl: '/api/2fa' });
-// after login:
-omni.client.setSessionToken(loginResponse.sessionToken);
+
+// AuthContext setSession:
+omni.client.setSessionToken(session?.sessionToken ?? null);
 ```
 
-No custom `fetch`, no localStorage glue from host. Brings frontend integration closer to "drop-in".
+Custom `fetch` and localStorage-reader removed. Frontend integration becomes drop-in for the common case while staying maximally flexible for the rest.
 
-**Why not now.** Adds public API surface; want to ship it together with rate-limit / audit / error-code lock-in so v0.6 is one coordinated stabilization release before v1.0 freeze.
+**Why not now.** Adds public API surface (two new methods + two new config fields); want to ship it together with rate-limit / audit / error-code lock-in so v0.6 is one coordinated stabilization release before v1.0 freeze.
 
 ---
 
