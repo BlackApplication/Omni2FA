@@ -2,6 +2,7 @@
   "name": "omni2fa-monorepo",
   "version": "0.0.0",
   "private": true,
+  "type": "module",
   "description": "Omni2FA monorepo — multi-method 2FA library for any stack. This root package is not published; see Core/js, React/react, and React/react-mui for the publishable packages.",
   "author": "BlackApplication",
   "license": "MIT",
@@ -23,13 +24,24 @@
   ],
   "scripts": {
     "build": "npm run build --workspaces --if-present",
-    "test": "npm run test --workspaces --if-present",
-    "lint": "npm run lint --workspaces --if-present && npm run lint:protocol",
+    "lint": "eslint . --ext .ts,.tsx && npm run lint:protocol",
+    "lint:fix": "eslint . --ext .ts,.tsx --fix",
     "lint:protocol": "redocly lint --config Core/protocol/redocly.yaml Core/protocol/omni2fa.openapi.yaml",
+    "format": "prettier --write \"**/*.{ts,tsx,json,md,yaml,yml}\"",
+    "format:check": "prettier --check \"**/*.{ts,tsx,json,md,yaml,yml}\"",
     "preview:protocol": "redocly preview-docs Core/protocol/omni2fa.openapi.yaml",
     "clean": "npm run clean --workspaces --if-present"
   },
   "devDependencies": {
-    "@redocly/cli": "^1.34.0"
+    "@redocly/cli": "^1.34.0",
+    "@typescript-eslint/eslint-plugin": "^8.18.0",
+    "@typescript-eslint/parser": "^8.18.0",
+    "eslint": "^9.17.0",
+    "eslint-config-prettier": "^9.1.0",
+    "globals": "^15.14.0",
+    "openapi-typescript": "^7.5.0",
+    "prettier": "^3.4.2",
+    "typescript": "^5.7.2",
+    "typescript-eslint": "^8.18.0"
   }
 }

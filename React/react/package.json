@@ -1,7 +1,7 @@
 {
   "name": "@omni2fa/react",
   "version": "0.0.0",
-  "description": "Omni2FA — headless React adapter. Thin hooks (useLoginFlow, useEnrollTotp, …) that subscribe to @omni2fa/core stores via useSyncExternalStore. No business logic — bring your own UI, or use @omni2fa/react-mui for a styled drop-in.",
+  "description": "Omni2FA — headless React adapter. Thin hooks (useTotpEnrollment, useChallenge, useMethods) subscribed to @omni2fa/core actors. No business logic — bring your own UI, or use @omni2fa/react-mui for a styled drop-in.",
   "keywords": [
     "2fa",
     "mfa",
@@ -23,15 +23,43 @@
   },
   "homepage": "https://github.com/BlackApplication/Omni2FA#readme",
   "type": "module",
+  "main": "./dist/index.cjs",
+  "module": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js",
+      "require": "./dist/index.cjs"
+    }
+  },
+  "files": [
+    "dist",
+    "README.md",
+    "LICENSE"
+  ],
   "publishConfig": {
     "access": "public"
   },
   "sideEffects": false,
+  "scripts": {
+    "build": "vite build",
+    "lint": "eslint src --ext .ts,.tsx",
+    "clean": "rimraf dist"
+  },
   "peerDependencies": {
-    "react": ">=19.0.0",
-    "react-dom": ">=19.0.0"
+    "react": ">=19.0.0"
   },
   "dependencies": {
-    "@omni2fa/core": "0.0.0"
+    "@omni2fa/core": "0.0.0",
+    "@xstate/react": "^5.0.0",
+    "xstate": "^5.19.0"
+  },
+  "devDependencies": {
+    "@types/react": "^19.0.2",
+    "react": "^19.0.0",
+    "rimraf": "^6.0.1",
+    "vite": "^6.0.3",
+    "vite-plugin-dts": "^4.3.0"
   }
 }
