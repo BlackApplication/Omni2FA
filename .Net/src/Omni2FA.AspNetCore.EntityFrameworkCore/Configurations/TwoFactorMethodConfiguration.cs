@@ -23,7 +23,7 @@ public class TwoFactorMethodConfiguration : IEntityTypeConfiguration<TwoFactorMe
         builder.HasKey(m => m.Id);
 
         builder.Property(m => m.UserId).IsRequired();
-        builder.Property(m => m.Kind).HasConversion<int>().IsRequired();
+        builder.Property(m => m.Type).HasConversion<int>().IsRequired();
         builder.Property(m => m.Name).HasMaxLength(128);
         builder.Property(m => m.IsActive).IsRequired();
         builder.Property(m => m.CreatedAt).IsRequired();
@@ -34,7 +34,7 @@ public class TwoFactorMethodConfiguration : IEntityTypeConfiguration<TwoFactorMe
         builder.HasIndex(m => m.UserId)
             .HasDatabaseName($"IX_{_options.MethodsTableName}_UserId");
 
-        builder.HasIndex(m => new { m.UserId, m.Kind })
-            .HasDatabaseName($"IX_{_options.MethodsTableName}_UserId_Kind");
+        builder.HasIndex(m => new { m.UserId, m.Type })
+            .HasDatabaseName($"IX_{_options.MethodsTableName}_UserId_Type");
     }
 }

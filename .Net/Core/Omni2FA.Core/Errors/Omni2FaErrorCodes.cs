@@ -26,8 +26,8 @@ public static class Omni2FaErrorCodes {
     /// <summary>The method id does not exist, or doesn't belong to the current user.</summary>
     public const string MethodNotFound = "METHOD_NOT_FOUND";
 
-    /// <summary>Attempt to enroll a unique-per-user kind (TOTP or Email) the user already has.</summary>
-    public const string KindAlreadyEnrolled = "KIND_ALREADY_ENROLLED";
+    /// <summary>Attempt to enroll a unique-per-user method type (TOTP or Email) the user already has.</summary>
+    public const string TypeAlreadyEnrolled = "TYPE_ALREADY_ENROLLED";
 
     /// <summary>Attempt to enroll a WebAuthn credential beyond the configured per-user cap.</summary>
     public const string MaxMethodsReached = "MAX_METHODS_REACHED";

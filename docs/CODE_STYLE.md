@@ -89,7 +89,7 @@ This is a **living document**. Whenever a new rule is agreed upon during a sessi
 **Specific noise to avoid:**
 
 - **`<inheritdoc />` alone on an implementation.** If the interface is documented, IntelliSense reads it through the interface. Add an XML doc on a concrete method only when there's something to add *beyond* what the interface says.
-- **`<summary>` that just restates the identifier.** `Id` → `Identifier of the row` adds zero information. `Kind` → `The kind of factor` is the same. Delete those.
+- **`<summary>` that just restates the identifier.** `Id` → `Identifier of the row` adds zero information. `Type` → `The type of factor` is the same. Delete those.
 
 **Heuristic before keeping a comment:** if you removed it, would the reader lose anything the identifier doesn't already say? If no — delete.
 
@@ -105,12 +105,12 @@ This is a **living document**. Whenever a new rule is agreed upon during a sessi
 This rule has its own document — see [`ARCHITECTURE.md`](ARCHITECTURE.md). Summary, in case you skim:
 
 - `@omni2fa/core` and `Omni2FA.Core` are **framework-agnostic**. No `react`, no `vue`, no `@angular/core` imports in JS core. No `Microsoft.AspNetCore.*` references in .NET core.
-- Framework / styled packages (`@omni2fa/react`, `@omni2fa/react-mui`, `Omni2FA.AspNetCore`, etc.) are **thin adapters**: they subscribe to core stores and render — no business logic, no timers, no `fetch`, no kind-specific branching, no validation.
+- Framework / styled packages (`@omni2fa/react`, `@omni2fa/react-mui`, `Omni2FA.AspNetCore`, etc.) are **thin adapters**: they subscribe to core stores and render — no business logic, no timers, no `fetch`, no type-specific branching, no validation.
 - The adapter contract is `subscribe(cb) → unsub` + `getSnapshot(): TState`. Every framework wraps it in its own reactivity primitive (`useSyncExternalStore` / `customRef` / `toSignal`).
 - Storage (where to keep pre-auth tokens) is abstracted behind `IStorage` in core. Framework packages don't pick a backend.
 - Cross-package dependency graph is enforced in code review — see `ARCHITECTURE.md` §6.
 
-If you're about to put a `setTimeout`, a `fetch`, an `if (kind === 'Totp')`, or a validation regex in a React/Vue/Angular file — **stop**, that belongs in core.
+If you're about to put a `setTimeout`, a `fetch`, an `if (type === 'Totp')`, or a validation regex in a React/Vue/Angular file — **stop**, that belongs in core.
 
 ## 11. Tests (future)
 

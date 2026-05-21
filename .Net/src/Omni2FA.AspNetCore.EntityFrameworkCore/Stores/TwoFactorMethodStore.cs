@@ -39,8 +39,8 @@ public class TwoFactorMethodStore : ITwoFactorMethodStore {
         return Set.FirstOrDefaultAsync(m => m.Id == methodId && m.UserId == userId && m.IsActive, cancellationToken);
     }
 
-    public Task<TwoFactorMethod?> GetByKindAsync(Guid userId, TwoFactorMethodKind kind, bool activeOnly = true, CancellationToken cancellationToken = default) {
-        var query = Set.Where(m => m.UserId == userId && m.Kind == kind);
+    public Task<TwoFactorMethod?> GetByTypeAsync(Guid userId, TwoFactorMethodType type, bool activeOnly = true, CancellationToken cancellationToken = default) {
+        var query = Set.Where(m => m.UserId == userId && m.Type == type);
         if (activeOnly) {
             query = query.Where(m => m.IsActive);
         }

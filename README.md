@@ -218,7 +218,7 @@ If your app already has a custom 2FA implementation — Omni2FA is designed to a
 
 - **Configurable DataProtector scope** — point Omni2FA at the same DPAPI scope you used before, and existing TOTP secrets decrypt without users re-enrolling.
 - **Configurable table and column names** — keep your existing schema names (e.g. `UserTwoFactorMethods` instead of our default `Omni2FaMethods`) via `modelBuilder.ApplyOmni2FaConfiguration(o => o.MethodsTableName = "UserTwoFactorMethods")`.
-- **Schema 1:1 with typical custom implementations** — fields like `Id`, `UserId`, `Kind`, `Name`, `IsActive`, `CreatedAt`, `LastUsedAt`, `TotpSecret`, and WebAuthn columns line up directly. Data migration is a single `INSERT … SELECT` SQL.
+- **Schema 1:1 with typical custom implementations** — fields like `Id`, `UserId`, `Type`, `Name`, `IsActive`, `CreatedAt`, `LastUsedAt`, `TotpSecret`, and WebAuthn columns line up directly. Data migration is a single `INSERT … SELECT` SQL.
 - **Pluggable audit, email, and persistence** — `IOmni2FaAuditSink`, `IEmailSender`, and `ITwoFactorMethodStore` plug into your existing infrastructure without forking.
 
 A step-by-step migration guide ships with v0.5 in [`docs/MIGRATION.md`](docs/MIGRATION.md).

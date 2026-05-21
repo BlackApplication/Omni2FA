@@ -126,7 +126,7 @@ paths:
       description: |
         After the host verifies the user's password and issues a pre-auth token,
         the frontend calls this with the picked method. Backend prepares
-        method-specific challenge state — see response shape per kind.
+        method-specific challenge state — see response shape per type.
 
         For **TOTP** — this is a no-op acknowledgment; the user enters the code
         from their authenticator and the frontend goes straight to `/verify`.
@@ -145,7 +145,7 @@ paths:
               $ref: '#/components/schemas/ChallengeStartRequest'
       responses:
         '200':
-          description: Challenge prepared. Response shape depends on method kind.
+          description: Challenge prepared. Response shape depends on method type.
           content:
             application/json:
               schema:
@@ -310,24 +310,24 @@ components:
 
     # --- Enums ---
 
-    TwoFactorMethodKind:
+    TwoFactorMethodType:
       type: string
       enum: [Totp, Email, WebAuthn]
       description: |
-        The kind of 2FA factor. Currently only `Totp` is implemented (v0.1).
+        The type of 2FA factor. Currently only `Totp` is implemented (v0.1).
         `Email` lands in v0.2, `WebAuthn` in v0.3.
 
     # --- Method DTOs ---
 
     TwoFactorMethodDto:
       type: object
-      required: [id, kind, createdAt]
+      required: [id, type, createdAt]
       properties:
         id:
           type: string
           format: uuid
-        kind:
-          $ref: '#/components/schemas/TwoFactorMethodKind'
+        type:
+          $ref: '#/components/schemas/TwoFactorMethodType'
         name:
           type: [string, "null"]
           description: Optional human-readable label (e.g. "Personal authenticator", "YubiKey 5").
@@ -381,13 +381,13 @@ components:
     ChallengeStartResponse:
       type: object
       description: |
-        Method-specific challenge payload. `kind` discriminates the shape.
+        Method-specific challenge payload. `type` discriminates the shape.
         For TOTP — empty payload (just confirms challenge started).
         Email/WebAuthn payloads will be added in v0.2/v0.3.
-      required: [kind]
+      required: [type]
       properties:
-        kind:
-          $ref: '#/components/schemas/TwoFactorMethodKind'
+        type:
+          $ref: '#/components/schemas/TwoFactorMethodType'
         # method-specific fields added in v0.2 (email) and v0.3 (webauthn assertion options)
 
     ChallengeVerifyRequest:

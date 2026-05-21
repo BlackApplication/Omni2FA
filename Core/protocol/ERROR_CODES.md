@@ -33,9 +33,9 @@ This file is the **stable contract**. Adding a new code is a minor version bump;
 **Meaning:** The submitted 6-digit code (TOTP or Email OTP) doesn't validate.
 **Frontend action:** Show inline error. Allow retry. Watch for `TOO_MANY_ATTEMPTS` on the next request.
 
-### `KIND_ALREADY_ENROLLED`
+### `TYPE_ALREADY_ENROLLED`
 **HTTP:** 409
-**Meaning:** Attempt to enroll a kind (`Totp` or `Email`) that the user already has. These kinds are unique per user.
+**Meaning:** Attempt to enroll a method type (`Totp` or `Email`) that the user already has. These types are unique per user.
 **Frontend action:** Show the existing method in the methods list. Offer "Remove existing and re-enroll" if appropriate.
 
 ### `LAST_METHOD_PROTECTED`
@@ -97,7 +97,7 @@ This file is the **stable contract**. Adding a new code is a minor version bump;
 | **400 Bad Request** | `VALIDATION_FAILED` |
 | **401 Unauthorized** | `INVALID_CODE`, `PREAUTH_EXPIRED`, `PREAUTH_INVALID`, `CHALLENGE_CONSUMED`, `RECOVERY_CODE_INVALID`, `RECOVERY_CODE_USED`, `WEBAUTHN_VERIFICATION_FAILED` |
 | **404 Not Found** | `CHALLENGE_NOT_FOUND`, `METHOD_NOT_FOUND` |
-| **409 Conflict** | `KIND_ALREADY_ENROLLED`, `LAST_METHOD_PROTECTED`, `MAX_METHODS_REACHED` |
+| **409 Conflict** | `TYPE_ALREADY_ENROLLED`, `LAST_METHOD_PROTECTED`, `MAX_METHODS_REACHED` |
 | **429 Too Many Requests** | `TOO_MANY_ATTEMPTS` |
 
 ---

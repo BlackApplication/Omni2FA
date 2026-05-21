@@ -14,10 +14,10 @@ public class TwoFactorChallenge {
 
     /// <summary>
     /// Whether this challenge is for a login verification or for enrolling a new method,
-    /// and (for enrollment) which method kind. Determines which of the kind-specific
+    /// and (for enrollment) which method type. Determines which of the type-specific
     /// fields below is populated.
     /// </summary>
-    public TwoFactorChallengePurpose Purpose { get; set; }
+    public TwoFactorChallengeKind Kind { get; set; }
 
     /// <summary>
     /// The method this challenge targets at login time. Null for enrollment ceremonies

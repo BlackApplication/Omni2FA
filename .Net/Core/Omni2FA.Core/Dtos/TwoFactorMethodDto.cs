@@ -6,7 +6,7 @@ namespace Omni2FA.Core.Dtos;
 public class TwoFactorMethodDto {
     public required Guid Id { get; init; }
 
-    public required TwoFactorMethodKind Kind { get; init; }
+    public required TwoFactorMethodType Type { get; init; }
 
     public string? Name { get; init; }
 

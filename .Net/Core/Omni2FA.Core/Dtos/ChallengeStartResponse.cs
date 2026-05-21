@@ -8,6 +8,6 @@ namespace Omni2FA.Core.Dtos;
 /// request options.
 /// </summary>
 public class ChallengeStartResponse {
-    /// <summary>Kind of the method that was started.</summary>
-    public required TwoFactorMethodKind Kind { get; init; }
+    /// <summary>Type of the method that was started.</summary>
+    public required TwoFactorMethodType Type { get; init; }
 }

@@ -26,7 +26,7 @@ Realistic split target: **~80% of UI-related logic lives in core**, ~20% is unav
 | Concern | Notes |
 |---------|-------|
 | **Login state machine** | Discriminated union: `Idle → PasswordSent → AwaitingMethodPick → ChallengeIssued → AwaitingVerify → Verified \| Failed`. Pure TS, no React/Vue imports. |
-| **Enrollment state machines** | One FSM per method kind (TOTP, Email, WebAuthn, RecoveryCodes). |
+| **Enrollment state machines** | One FSM per method type (TOTP, Email, WebAuthn, RecoveryCodes). |
 | **WebAuthn marshaling** | Encode/decode challenge bytes (base64url ↔ `ArrayBuffer`), invoke `navigator.credentials.create() / .get()`. Browser APIs are not framework-specific. |
 | **HTTP client** | Typed wrapper over `fetch`. Generated from OpenAPI types. Maps HTTP errors to error codes (rule 9 in CODE_STYLE.md). |
 | **Token lifecycle** | Pre-auth token storage (via `IStorage`), expiry tracking, auto-invalidation on verify or expire. |
@@ -105,7 +105,7 @@ Same five lines per fra­mework, no business logic.
 
 If any of these appear in `@omni2fa/react`, `@omni2fa/react-mui`, or future Vue/Angular packages — it's a bug, move it to core.
 
-- ❌ `if (method.kind === 'Totp') { ... }` — kind-specific business branching. Belongs to FSM in core.
+- ❌ `if (method.type === 'Totp') { ... }` — type-specific business branching. Belongs to FSM in core.
 - ❌ `setTimeout(..., 30_000)` for TOTP window. Belongs to TOTP timer in core.
 - ❌ String parsing/formatting of OTPs, recovery codes, base32 secrets. Belongs to helpers in core.
 - ❌ `fetch('/api/2fa/...')` direct calls. Belongs to HTTP client in core.
@@ -132,7 +132,7 @@ Before merging anything in `React/` (or future `Vue/`, `Angular/`):
   - If yes → it must be in the framework package, not core.
 - [ ] Does this file import from `@omni2fa/core` only (no other framework)?
   - If `@omni2fa/react-mui` imports `vue` — that's a bug.
-- [ ] Are there any `if (kind === '...')` branches, timers, regexes, or `fetch` calls?
+- [ ] Are there any `if (type === '...')` branches, timers, regexes, or `fetch` calls?
   - If yes → those moves to core, leaving the framework file as a thin subscriber.
 - [ ] Does the component own any state that isn't `useSyncExternalStore` output?
   - If yes — challenge whether it should be in core.

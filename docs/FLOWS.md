@@ -6,7 +6,7 @@ This document describes the user-facing flows Omni2FA orchestrates. The OpenAPI 
 
 - **Pre-auth token** — short-lived (~3-5 min) JWT issued after password verification but before 2FA verification. Carries `userId` + `purpose=2fa-pending`. The frontend includes it in every step of the 2FA ceremony so the server knows whose flow this is without leaking identity to the URL/storage.
 - **Challenge** — server-side state for a 2FA ceremony in progress. Stored in `Omni2FaChallenges` table: hashed OTP for email, challenge bytes for WebAuthn, expiry, consumed flag. Consumed on first successful verification.
-- **Method** — an enrolled 2FA factor on a user. Rows in `Omni2FaMethods`: kind (Totp / Email / WebAuthn), method-specific fields, optional human-readable name.
+- **Method** — an enrolled 2FA factor on a user. Rows in `Omni2FaMethods`: type (Totp / Email / WebAuthn), method-specific fields, optional human-readable name.
 - **Recovery code** — single-use code that substitutes for any 2FA method during login. Generated on first method enrollment, hashed at rest, shown to the user **once**.
 
 ---
@@ -35,7 +35,7 @@ sequenceDiagram
         U->>FE: pick method
         FE->>O: POST /api/2fa/challenge/start { preAuthToken, methodId }
         note right of O: Email — send OTP; WebAuthn — return assertion request; TOTP — noop
-        O-->>FE: 200 ChallengeStartResponse (kind-specific payload)
+        O-->>FE: 200 ChallengeStartResponse (type-specific payload)
 
         U->>FE: enter code / produce assertion
         FE->>O: POST /api/2fa/challenge/verify { preAuthToken, methodId, code|assertion }

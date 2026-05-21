@@ -17,8 +17,8 @@ public interface ITwoFactorMethodStore {
     /// <summary>Find an active method by id, scoped to the given user. Returns null if missing or inactive.</summary>
     Task<TwoFactorMethod?> GetActiveAsync(Guid methodId, Guid userId, CancellationToken cancellationToken = default);
 
-    /// <summary>Find a method of the given kind for a user.</summary>
-    Task<TwoFactorMethod?> GetByKindAsync(Guid userId, TwoFactorMethodKind kind, bool activeOnly = true, CancellationToken cancellationToken = default);
+    /// <summary>Find a method of the given type for a user.</summary>
+    Task<TwoFactorMethod?> GetByTypeAsync(Guid userId, TwoFactorMethodType type, bool activeOnly = true, CancellationToken cancellationToken = default);
 
     /// <summary>Add a new method. Implementations stamp <see cref="TwoFactorMethod.CreatedAt"/> if unset.</summary>
     Task AddAsync(TwoFactorMethod method, CancellationToken cancellationToken = default);
