@@ -28,7 +28,7 @@ The goal is one method working end-to-end across .NET + React + EF before broade
 
 | Version | Capability | Scope | Status |
 |---------|-----------|-------|--------|
-| **v0.1** | TOTP end-to-end | `.NET endpoints + EF store + React headless hooks. Enroll TOTP, login with TOTP. Pre-auth token issued.` | ⬜ |
+| **v0.1** | TOTP end-to-end | `.NET endpoints + EF store + React headless hooks. Enroll TOTP, login with TOTP. Pre-auth token issued.` | ✅ |
 | **v0.2** | Email OTP | `Built-in SMTP sender (MailKit) + templated emails + i18n scaffold (en at minimum). Pluggable IEmailSender for users with their own infra.` | ⬜ |
 | **v0.3** | WebAuthn | `Passkeys + hardware keys via Fido2NetLib + @simplewebauthn/*. Multiple credentials per user (configurable cap).` | ⬜ |
 | **v0.4** | Recovery codes | `Hash-stored, generated on first method enrollment, regeneration endpoint, one-time use, shown once. Replaces 2FA on login.` | ⬜ |

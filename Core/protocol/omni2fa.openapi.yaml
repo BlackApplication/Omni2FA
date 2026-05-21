@@ -2,7 +2,7 @@ openapi: 3.1.0
 
 info:
   title: Omni2FA API
-  version: 0.0.0
+  version: 0.1.0
   summary: Cross-stack HTTP contract for multi-method 2FA.
   description: |
     The HTTP contract that any backend implementing Omni2FA must satisfy, and
