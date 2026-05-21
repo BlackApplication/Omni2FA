@@ -10,8 +10,8 @@ namespace Omni2FA.Core.Entities;
 public class TwoFactorMethod {
     public Guid Id { get; set; }
 
-    /// <summary>Host's user id. Omni2FA does not own the user table.</summary>
-    public Guid UserId { get; set; }
+    /// <summary>Host's user id. Stringified — host casts on the boundary if its native type differs.</summary>
+    public string UserId { get; set; } = string.Empty;
 
     public TwoFactorMethodType Type { get; set; }
 

@@ -8,6 +8,6 @@ public class VerifySuccessResponse {
     /// <summary>Always <c>true</c> on this response. Failures use <c>4xx</c> with an error envelope.</summary>
     public required bool Verified { get; init; }
 
-    /// <summary>The verified user's id.</summary>
-    public required Guid UserId { get; init; }
+    /// <summary>The verified user's id, stringified.</summary>
+    public required string UserId { get; init; }
 }

@@ -30,14 +30,9 @@ public class TwoFactorChallengeStore : ITwoFactorChallengeStore {
         return Set.FirstOrDefaultAsync(c => c.Id == challengeId, cancellationToken);
     }
 
-    public Task<TwoFactorChallenge?> GetActiveAsync(Guid challengeId, Guid userId, CancellationToken cancellationToken = default) {
+    public Task<TwoFactorChallenge?> GetActiveAsync(Guid challengeId, string userId, CancellationToken cancellationToken = default) {
         var now = DateTime.UtcNow;
-        return Set.FirstOrDefaultAsync(
-            c => c.Id == challengeId
-                && c.UserId == userId
-                && c.ConsumedAt == null
-                && c.ExpiresAt > now,
-            cancellationToken);
+        return Set.FirstOrDefaultAsync(c => c.Id == challengeId && c.UserId == userId && c.ConsumedAt == null && c.ExpiresAt > now, cancellationToken);
     }
 
     public Task MarkConsumedAsync(TwoFactorChallenge challenge, CancellationToken cancellationToken = default) {
@@ -50,11 +45,10 @@ public class TwoFactorChallengeStore : ITwoFactorChallengeStore {
         return Task.CompletedTask;
     }
 
-    public async Task<int> PurgeExpiredAsync(DateTime cutoffUtc, CancellationToken cancellationToken = default) {
-        return await Set
+    public Task<int> PurgeExpiredAsync(DateTime cutoffUtc, CancellationToken cancellationToken = default) {
+        return Set
             .Where(c => c.ExpiresAt < cutoffUtc)
-            .ExecuteDeleteAsync(cancellationToken)
-            .ConfigureAwait(false);
+            .ExecuteDeleteAsync(cancellationToken);
     }
 
     public Task SaveChangesAsync(CancellationToken cancellationToken = default) {

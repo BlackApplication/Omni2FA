@@ -22,7 +22,7 @@ public class TwoFactorChallengeConfiguration : IEntityTypeConfiguration<TwoFacto
 
         builder.HasKey(c => c.Id);
 
-        builder.Property(c => c.UserId).IsRequired();
+        builder.Property(c => c.UserId).HasMaxLength(64).IsRequired();
         builder.Property(c => c.Kind).HasConversion<int>().IsRequired();
         builder.Property(c => c.TotpSecretCandidate).HasMaxLength(512);
         builder.Property(c => c.EmailOtpHash).HasMaxLength(256);

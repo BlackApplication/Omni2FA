@@ -19,7 +19,7 @@ public class TwoFactorMethodStore : ITwoFactorMethodStore {
 
     private DbSet<TwoFactorMethod> Set => _context.Set<TwoFactorMethod>();
 
-    public async Task<IReadOnlyList<TwoFactorMethod>> ListActiveByUserAsync(Guid userId, CancellationToken cancellationToken = default) {
+    public async Task<IReadOnlyList<TwoFactorMethod>> ListActiveByUserAsync(string userId, CancellationToken cancellationToken = default) {
         var list = await Set
             .AsNoTracking()
             .Where(m => m.UserId == userId && m.IsActive)
@@ -29,17 +29,17 @@ public class TwoFactorMethodStore : ITwoFactorMethodStore {
         return list;
     }
 
-    public Task<bool> HasActiveMethodsAsync(Guid userId, CancellationToken cancellationToken = default) {
+    public Task<bool> HasActiveMethodsAsync(string userId, CancellationToken cancellationToken = default) {
         return Set
             .AsNoTracking()
             .AnyAsync(m => m.UserId == userId && m.IsActive, cancellationToken);
     }
 
-    public Task<TwoFactorMethod?> GetActiveAsync(Guid methodId, Guid userId, CancellationToken cancellationToken = default) {
+    public Task<TwoFactorMethod?> GetActiveAsync(Guid methodId, string userId, CancellationToken cancellationToken = default) {
         return Set.FirstOrDefaultAsync(m => m.Id == methodId && m.UserId == userId && m.IsActive, cancellationToken);
     }
 
-    public Task<TwoFactorMethod?> GetByTypeAsync(Guid userId, TwoFactorMethodType type, bool activeOnly = true, CancellationToken cancellationToken = default) {
+    public Task<TwoFactorMethod?> GetByTypeAsync(string userId, TwoFactorMethodType type, bool activeOnly = true, CancellationToken cancellationToken = default) {
         var query = Set.Where(m => m.UserId == userId && m.Type == type);
         if (activeOnly) {
             query = query.Where(m => m.IsActive);

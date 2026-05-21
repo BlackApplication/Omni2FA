@@ -7,11 +7,11 @@ namespace Omni2FA.Core.Services.Interfaces;
 /// </summary>
 public interface IPreAuthTokenIssuer {
     /// <summary>Mint a fresh pre-auth token for the given user, valid for the configured TTL.</summary>
-    PreAuthTokenInfo Issue(Guid userId);
+    PreAuthTokenInfo Issue(string userId);
 
     /// <summary>
     /// Validate a previously-issued token. Returns the user id encoded in the token on success,
     /// or null if the token is missing, malformed, signed by an unknown key, or expired.
     /// </summary>
-    Guid? ValidateAndGetUserId(string token);
+    string? ValidateAndGetUserId(string token);
 }

@@ -10,7 +10,7 @@ namespace Omni2FA.Core.Entities;
 public class TwoFactorChallenge {
     public Guid Id { get; set; }
 
-    public Guid UserId { get; set; }
+    public string UserId { get; set; } = string.Empty;
 
     /// <summary>
     /// Whether this challenge is for a login verification or for enrolling a new method,

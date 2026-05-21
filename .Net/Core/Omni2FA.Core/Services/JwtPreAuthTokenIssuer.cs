@@ -41,11 +41,14 @@ public class JwtPreAuthTokenIssuer : IPreAuthTokenIssuer {
         };
     }
 
-    public PreAuthTokenInfo Issue(Guid userId) {
+    public PreAuthTokenInfo Issue(string userId) {
+        if (string.IsNullOrWhiteSpace(userId)) {
+            throw new ArgumentException("userId must not be empty.", nameof(userId));
+        }
         var now = DateTime.UtcNow;
         var expires = now.Add(_options.Ttl);
         var claims = new[] {
-            new Claim(JwtRegisteredClaimNames.Sub, userId.ToString()),
+            new Claim(JwtRegisteredClaimNames.Sub, userId),
             new Claim(PurposeClaim, PurposeValue),
             new Claim(JwtRegisteredClaimNames.Jti, Guid.NewGuid().ToString()),
         };
@@ -60,7 +63,7 @@ public class JwtPreAuthTokenIssuer : IPreAuthTokenIssuer {
         return new PreAuthTokenInfo(encoded, expires);
     }
 
-    public Guid? ValidateAndGetUserId(string token) {
+    public string? ValidateAndGetUserId(string token) {
         if (string.IsNullOrWhiteSpace(token)) {
             return null;
         }
@@ -71,7 +74,7 @@ public class JwtPreAuthTokenIssuer : IPreAuthTokenIssuer {
                 return null;
             }
             var sub = principal.FindFirst(JwtRegisteredClaimNames.Sub)?.Value;
-            return Guid.TryParse(sub, out var userId) ? userId : null;
+            return string.IsNullOrWhiteSpace(sub) ? null : sub;
         } catch {
             return null;
         }

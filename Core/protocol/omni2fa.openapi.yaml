@@ -412,10 +412,11 @@ components:
           description: Always `true` on this response. Failures use `4xx` with `ErrorResponse`.
         userId:
           type: string
-          format: uuid
+          maxLength: 64
           description: |
-            Verified user's identifier. The host application uses this to mint
-            its final session JWT/cookie. Omni2FA does not issue session tokens.
+            Verified user's identifier, stringified. The host application casts
+            this to its native userId type (Guid/long/int/email) and uses it to
+            mint its final session JWT/cookie. Omni2FA does not issue session tokens.
 
     # --- TOTP enrollment ---
 

@@ -9,16 +9,16 @@ namespace Omni2FA.Core.Stores;
 /// </summary>
 public interface ITwoFactorMethodStore {
     /// <summary>List all active methods enrolled by the given user, in enrollment order.</summary>
-    Task<IReadOnlyList<TwoFactorMethod>> ListActiveByUserAsync(Guid userId, CancellationToken cancellationToken = default);
+    Task<IReadOnlyList<TwoFactorMethod>> ListActiveByUserAsync(string userId, CancellationToken cancellationToken = default);
 
     /// <summary>Returns true if the user has at least one active method.</summary>
-    Task<bool> HasActiveMethodsAsync(Guid userId, CancellationToken cancellationToken = default);
+    Task<bool> HasActiveMethodsAsync(string userId, CancellationToken cancellationToken = default);
 
     /// <summary>Find an active method by id, scoped to the given user. Returns null if missing or inactive.</summary>
-    Task<TwoFactorMethod?> GetActiveAsync(Guid methodId, Guid userId, CancellationToken cancellationToken = default);
+    Task<TwoFactorMethod?> GetActiveAsync(Guid methodId, string userId, CancellationToken cancellationToken = default);
 
     /// <summary>Find a method of the given type for a user.</summary>
-    Task<TwoFactorMethod?> GetByTypeAsync(Guid userId, TwoFactorMethodType type, bool activeOnly = true, CancellationToken cancellationToken = default);
+    Task<TwoFactorMethod?> GetByTypeAsync(string userId, TwoFactorMethodType type, bool activeOnly = true, CancellationToken cancellationToken = default);
 
     /// <summary>Add a new method. Implementations stamp <see cref="TwoFactorMethod.CreatedAt"/> if unset.</summary>
     Task AddAsync(TwoFactorMethod method, CancellationToken cancellationToken = default);

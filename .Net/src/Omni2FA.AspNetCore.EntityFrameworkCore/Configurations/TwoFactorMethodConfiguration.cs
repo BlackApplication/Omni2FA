@@ -22,7 +22,7 @@ public class TwoFactorMethodConfiguration : IEntityTypeConfiguration<TwoFactorMe
 
         builder.HasKey(m => m.Id);
 
-        builder.Property(m => m.UserId).IsRequired();
+        builder.Property(m => m.UserId).HasMaxLength(64).IsRequired();
         builder.Property(m => m.Type).HasConversion<int>().IsRequired();
         builder.Property(m => m.Name).HasMaxLength(128);
         builder.Property(m => m.IsActive).IsRequired();
