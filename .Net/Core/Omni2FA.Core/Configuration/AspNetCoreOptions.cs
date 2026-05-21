@@ -7,10 +7,17 @@ namespace Omni2FA.Core.Configuration;
 /// the entire options tree binds from a single configuration section.
 /// </summary>
 public class AspNetCoreOptions {
-    /// <summary>Claim read from <c>HttpContext.User</c> to identify the current user. Host overrides if its userId sits in a non-standard claim.</summary>
+    /// <summary>
+    /// Primary claim used to identify the current user. Defaults to <c>ClaimTypes.NameIdentifier</c>, which
+    /// matches ASP.NET's default JWT claim mapping. The lookup also falls back to raw JWT <c>sub</c> so
+    /// hosts using <c>MapInboundClaims = false</c> work without further configuration.
+    /// </summary>
     public string UserIdClaim { get; set; } = ClaimTypes.NameIdentifier;
 
-    /// <summary>Claim read from <c>HttpContext.User</c> for the user-visible account label shown in authenticator apps. Falls back to userId if missing.</summary>
+    /// <summary>
+    /// Primary claim used for the user-visible account label shown in authenticator apps. Defaults to
+    /// <c>ClaimTypes.Email</c>; falls back to raw JWT <c>email</c>, then to the user id if neither is present.
+    /// </summary>
     public string UserLabelClaim { get; set; } = ClaimTypes.Email;
 
     /// <summary>Mount point for all Omni2FA endpoints. Default <c>/api/2fa</c>.</summary>

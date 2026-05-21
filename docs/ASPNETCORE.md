@@ -81,14 +81,25 @@ Host-session endpoints (`/methods/*`, `/enroll/*`) need the current user's id, r
 ```csharp
 public interface IUserContextAccessor {
     string GetCurrentUserId();
+    string GetCurrentUserLabel();
 }
 ```
 
-Default implementation reads a configurable claim:
+Default implementation reads configurable claims with a robust fallback:
+
+1. Look up the configured `UserIdClaim` (default `ClaimTypes.NameIdentifier`).
+2. If missing, fall back to raw JWT `sub`.
+
+This means **both** common JWT configurations work out of the box:
+- Standard `AddJwtBearer(...)` — ASP.NET maps `sub` → `ClaimTypes.NameIdentifier`. Primary lookup hits.
+- `AddJwtBearer(o => o.MapInboundClaims = false)` — claims stay as-is, `sub` is `sub`. Fallback hits.
+
+`UserLabelClaim` follows the same pattern (`ClaimTypes.Email` → raw `email` → userId as last resort).
 
 ```csharp
-public class Omni2FaOptions {
+public class AspNetCoreOptions {
     public string UserIdClaim { get; set; } = ClaimTypes.NameIdentifier;
+    public string UserLabelClaim { get; set; } = ClaimTypes.Email;
     // ...
 }
 ```
@@ -103,6 +114,8 @@ services.AddOmni2Fa(...);
 The host registration wins.
 
 **Scope of this interface:** only host-session endpoints. Pre-auth-protected endpoints (`/challenge/*`) read the userId from `HttpContext.Items["Omni2FaUserId"]` set by the pre-auth filter (see §4).
+
+**Pre-auth handler note:** `JwtPreAuthTokenIssuer` validates Omni2FA's own pre-auth tokens with an instance-scoped `JwtSecurityTokenHandler` configured with `MapInboundClaims = false`. The library never mutates the static `JwtSecurityTokenHandler.DefaultInboundClaimTypeMap`, so host JWT claim mapping is untouched.
 
 ---
 

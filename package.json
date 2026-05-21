@@ -20,7 +20,8 @@
   "workspaces": [
     "Core/js",
     "React/react",
-    "React/react-mui"
+    "React/react-mui",
+    "examples/full/frontend"
   ],
   "scripts": {
     "build": "npm run build --workspaces --if-present",

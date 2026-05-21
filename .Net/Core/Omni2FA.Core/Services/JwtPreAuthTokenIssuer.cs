@@ -22,7 +22,12 @@ public class JwtPreAuthTokenIssuer : IPreAuthTokenIssuer {
     private readonly PreAuthOptions _options;
     private readonly SigningCredentials _signingCredentials;
     private readonly TokenValidationParameters _validationParameters;
-    private readonly JwtSecurityTokenHandler _handler = new();
+    private readonly JwtSecurityTokenHandler _handler = new() {
+        // Read claims as-is — we look up 'sub' directly. Without this the static
+        // DefaultInboundClaimTypeMap rewrites 'sub' to ClaimTypes.NameIdentifier
+        // and the lookup misses it.
+        MapInboundClaims = false,
+    };
 
     public JwtPreAuthTokenIssuer(IOptions<Omni2FaOptions> options) {
         _options = options.Value.PreAuth;

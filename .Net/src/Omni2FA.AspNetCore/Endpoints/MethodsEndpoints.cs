@@ -18,6 +18,7 @@ internal static class MethodsEndpoints {
             var methods = await service.ListAsync(user.GetCurrentUserId(), cancellationToken).ConfigureAwait(false);
             return Results.Ok(methods);
         })
+        .RequireAuthorization()
         .WithName("listMethods")
         .WithTags("methods")
         .Produces<IReadOnlyList<TwoFactorMethodDto>>(StatusCodes.Status200OK)
@@ -32,6 +33,7 @@ internal static class MethodsEndpoints {
             var result = await service.RemoveAsync(user.GetCurrentUserId(), methodId, cancellationToken).ConfigureAwait(false);
             return result.ToHttpResult();
         })
+        .RequireAuthorization()
         .WithName("removeMethod")
         .WithTags("methods")
         .Produces(StatusCodes.Status204NoContent)

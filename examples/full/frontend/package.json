@@ -1,0 +1,34 @@
+{
+  "name": "@omni2fa-example/frontend",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "build:libs": "npm --prefix ../../.. run build -w @omni2fa/core -w @omni2fa/react",
+    "predev": "npm run build:libs",
+    "dev": "vite",
+    "build": "tsc -b && vite build",
+    "preview": "vite preview"
+  },
+  "dependencies": {
+    "@emotion/react": "^11.13.5",
+    "@emotion/styled": "^11.13.5",
+    "@mui/icons-material": "^6.2.0",
+    "@mui/material": "^6.2.0",
+    "@omni2fa/core": "0.1.0",
+    "@omni2fa/react": "0.1.0",
+    "@xstate/react": "^5.0.0",
+    "react": "^19.0.0",
+    "react-dom": "^19.0.0",
+    "react-qr-code": "^2.0.15",
+    "react-router-dom": "^7.0.0",
+    "xstate": "^5.19.0"
+  },
+  "devDependencies": {
+    "@types/react": "^19.0.2",
+    "@types/react-dom": "^19.0.2",
+    "@vitejs/plugin-react": "^4.3.4",
+    "typescript": "^5.7.2",
+    "vite": "^6.0.3"
+  }
+}

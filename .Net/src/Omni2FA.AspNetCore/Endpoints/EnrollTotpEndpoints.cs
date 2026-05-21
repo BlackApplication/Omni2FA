@@ -20,6 +20,7 @@ internal static class EnrollTotpEndpoints {
             var result = await service.StartAsync(user.GetCurrentUserId(), user.GetCurrentUserLabel(), cancellationToken).ConfigureAwait(false);
             return result.ToHttpResult();
         })
+        .RequireAuthorization()
         .WithName("startTotpEnrollment")
         .WithTags("enroll-totp")
         .Produces<TotpEnrollStartResponse>(StatusCodes.Status200OK)
@@ -35,6 +36,7 @@ internal static class EnrollTotpEndpoints {
             var result = await service.ConfirmAsync(user.GetCurrentUserId(), request, cancellationToken).ConfigureAwait(false);
             return result.ToHttpResult();
         })
+        .RequireAuthorization()
         .WithName("confirmTotpEnrollment")
         .WithTags("enroll-totp")
         .Accepts<TotpEnrollConfirmRequest>("application/json")

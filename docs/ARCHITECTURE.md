@@ -266,7 +266,7 @@ Anything that could collide with a host's existing state must be configurable vi
 - `ITwoFactorMethodStore` / `ITwoFactorChallengeStore` — replace EF store with custom backend (Mongo, Dapper, raw ADO).
 - `IDataProtectionProvider` — pass host's existing provider (standard ASP.NET Core interface, not Omni2FA-specific).
 
-**The test for "is this configurable enough?"** is the QRpark migration. QRpark already has a working custom 2FA implementation. Migrating QRpark to Omni2FA on v0.5 will surface every missing configuration point. Anything that requires touching Omni2FA source code instead of just config — that's a missing option.
+**The test for "is this configurable enough?"** is migrating an existing custom 2FA implementation onto Omni2FA. Any host already running a hand-rolled 2FA should be able to plug Omni2FA in without modifying its database schema or rewriting business code — only adjusting `Omni2FaOptions` and EF mapping. Anything that requires touching Omni2FA source code instead of just config — that's a missing option.
 
 ## 9. Why this matters
 
@@ -282,6 +282,6 @@ This document is the contract for that choice.
 
 - **2026-05-20** — initial draft from session 1. Captures the framework-agnostic core / thin adapter principle as a binding rule, with boundary map, code review checklist, and dependency graph.
 - **2026-05-20** — `.NET` physical layout updated to mirror the boundary: `Omni2FA.Core` and `Omni2FA.WebAuthn` moved from `.Net/src/` to `.Net/Core/`. `.Net/src/` now holds only ASP.NET-coupled adapters. `Omni2FA.sln` lives in `.Net/` root, references both folders. Rationale: makes the framework-agnostic boundary visible at the path level during code review.
-- **2026-05-21** — added section 8 "Configurability (binding)". Migration from custom 2FA implementations (starting with QRpark on v0.5) is a first-class scenario; no hardcoded magic strings in core, all collision-prone settings exposed via `Omni2FaOptions` or pluggable interfaces. Original "Why this matters" renumbered to 9, change log to 10.
+- **2026-05-21** — added section 8 "Configurability (binding)". Migration from existing custom 2FA implementations is a first-class scenario; no hardcoded magic strings in core, all collision-prone settings exposed via `Omni2FaOptions` or pluggable interfaces. Original "Why this matters" renumbered to 9, change log to 10.
 - **2026-05-21** — .NET dependency graph clarified: adapter packages (`Omni2FA.AspNetCore.EntityFrameworkCore`, future `Omni2FA.Dapper`, etc.) are **siblings**, all depending only on `Omni2FA.Core` plus their own infrastructure SDK. EF adapter no longer references `Omni2FA.AspNetCore`. Hosts can pull just the EF adapter without dragging in ASP.NET endpoints.
 - **2026-05-21** — pre-auth token transport principle recorded in section 7: Bearer-only by design through v1.x, opt-in cookie transport scheduled for v1.6 as a parallel option (not a replacement). Rationale: Bearer requires zero host config, behaves identically across every backend adapter, and keeps the OpenAPI contract free of cookie-policy concerns that belong to the host's session strategy.

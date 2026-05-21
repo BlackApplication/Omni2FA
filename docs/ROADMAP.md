@@ -32,8 +32,8 @@ The goal is one method working end-to-end across .NET + React + EF before broade
 | **v0.2** | Email OTP | `Built-in SMTP sender (MailKit) + templated emails + i18n scaffold (en at minimum). Pluggable IEmailSender for users with their own infra.` | ⬜ |
 | **v0.3** | WebAuthn | `Passkeys + hardware keys via Fido2NetLib + @simplewebauthn/*. Multiple credentials per user (configurable cap).` | ⬜ |
 | **v0.4** | Recovery codes | `Hash-stored, generated on first method enrollment, regeneration endpoint, one-time use, shown once. Replaces 2FA on login.` | ⬜ |
-| **v0.5** | Ready UI (`@omni2fa/react-mui`) | `Drop-in dialogs ported from the QRpark reference — TwoFactorSection, enrollment dialogs per method, regenerate dialog. MUI styled, themeable.` | ⬜ |
-| **v0.6** | Stabilization | `Rate limiting hardening (default 20 attempts/min/IP), audit sink interface finalized, error code catalogue locked, OpenAPI 1.0 frozen.` | ⬜ |
+| **v0.5** | Ready UI (`@omni2fa/react-mui`) | `Drop-in dialogs — TwoFactorSection, enrollment dialogs per method, regenerate dialog. MUI styled, themeable.` | ⬜ |
+| **v0.6** | Stabilization | `Rate limiting hardening (default 20 attempts/min/IP), audit sink interface finalized, error code catalogue locked, OpenAPI 1.0 frozen, host-session-token client API smoothing (setSessionToken / clearSessionToken on Omni2FaClient — see Deferred section).` | ⬜ |
 
 ## v1.0 — first public release
 
@@ -67,6 +67,41 @@ Things on the official roadmap but demand-gated:
 
 - SMS OTP — pluggable sender (Twilio, MessageBird, internal SMPP). Open question: provider auto-rotation.
 - Push notifications via FCM / APNs — depends on app having mobile presence.
+
+---
+
+## Deferred — discovered during v0.1, scheduled for later
+
+Polish items that surfaced while shipping v0.1 and have a clear target version. Recorded here so they don't get lost.
+
+### Host session-token client API — target **v0.6**
+
+**Problem.** `Omni2FaClient` currently knows only about its own pre-auth token (`setPreAuthToken` / `getPreAuthToken`). For host-session endpoints (`/methods`, `/enroll/*`) the host must attach its own session JWT — which today means writing ~15-25 lines of custom `fetch` wrapper. See `examples/full/frontend/src/omni2fa.ts` for the workaround.
+
+**Proposed fix.** Add symmetric API to `Omni2FaClient`:
+
+```ts
+omni.client.setSessionToken(loginResponse.sessionToken);
+omni.client.clearSessionToken();
+```
+
+Internally the client picks which token to attach per request:
+- `/challenge/*` → pre-auth token (existing behavior)
+- `/methods/*`, `/enroll/*` → session token (new behavior)
+
+Reflects in the OpenAPI security schemes already declared (`HostSession` vs `PreAuth`).
+
+**Then the example shrinks to:**
+
+```ts
+export const omni = createOmni2Fa({ baseUrl: '/api/2fa' });
+// after login:
+omni.client.setSessionToken(loginResponse.sessionToken);
+```
+
+No custom `fetch`, no localStorage glue from host. Brings frontend integration closer to "drop-in".
+
+**Why not now.** Adds public API surface; want to ship it together with rate-limit / audit / error-code lock-in so v0.6 is one coordinated stabilization release before v1.0 freeze.
 
 ---
 
