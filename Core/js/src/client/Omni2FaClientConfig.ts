@@ -8,6 +8,13 @@ export interface Omni2FaClientConfig {
     storage?: IStorage;
     /** Optional fetch override (custom interceptors, retry policy, etc.). Defaults to global <c>fetch</c>. */
     fetch?: typeof fetch;
+    /**
+     * Cookie policy for requests. Set <c>'include'</c> when host-session auth is a cookie the browser
+     * should attach (instead of a Bearer token via <c>setSessionToken</c>). Default <c>'same-origin'</c>.
+     */
+    credentials?: 'omit' | 'same-origin' | 'include';
     /** Storage key used to persist the pre-auth token. Defaults to <c>omni2fa:preauth</c>. */
     preAuthStorageKey?: string;
+    /** Storage key used to persist the host session token. Defaults to <c>omni2fa:session</c>. */
+    sessionStorageKey?: string;
 }

@@ -8,6 +8,8 @@ import type {
     EmailEnrollStartRequest,
     EmailEnrollStartResponse,
     MethodCreatedResponse,
+    RecoveryCodesResponse,
+    RecoveryCodeVerifyRequest,
     TotpEnrollConfirmRequest,
     TotpEnrollStartResponse,
     TwoFactorMethodDto,
@@ -35,7 +37,15 @@ export interface IOmni2FaClient {
     startChallenge(request: ChallengeStartRequest): Promise<ClientCall<ChallengeStartResponse>>;
     resendChallenge(request: ChallengeResendRequest): Promise<ClientCall<ChallengeStartResponse>>;
     verifyChallenge(request: ChallengeVerifyRequest): Promise<ClientCall<VerifySuccessResponse>>;
+    verifyRecoveryCode(request: RecoveryCodeVerifyRequest): Promise<ClientCall<VerifySuccessResponse>>;
 
+    regenerateRecoveryCodes(): Promise<ClientCall<RecoveryCodesResponse>>;
+
+    /** Pre-auth token — sent on <c>/challenge/*</c> during the 2FA ceremony. */
     setPreAuthToken(token: string | null): void;
     getPreAuthToken(): string | null;
+
+    /** Host session token — sent on host-session endpoints (<c>/methods</c>, <c>/enroll/*</c>, <c>/recovery-codes/*</c>). */
+    setSessionToken(token: string | null): void;
+    getSessionToken(): string | null;
 }

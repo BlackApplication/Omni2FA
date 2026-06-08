@@ -2,6 +2,34 @@
 
 All notable changes to Omni2FA will be documented in this file. Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); versions follow [SemVer](https://semver.org/).
 
+## [0.6.0] — 2026-06-08
+
+Production-hardening release: recovery codes (v0.4 scope) plus the v0.6 stabilization items, so
+Omni2FA can be deployed to a real app for testing. The v0.5 `@omni2fa/react-mui` styled package is
+intentionally deferred — hosts use the headless `@omni2fa/react` hooks (see the example).
+
+### Added
+
+#### Recovery codes (.NET)
+- One-time backup codes: generated on first method enrollment (returned once in `MethodCreatedResponse.recoveryCodes`), `POST /recovery-codes/regenerate`, and `POST /challenge/recovery-code` as a method-agnostic login fallback. `XXXX-XXXX-XX` format, SHA-256 hashed at rest, one-time use. New `RecoveryCode` entity + `IRecoveryCodeStore` (EF adapter, configurable `RecoveryCodesTableName`) + `IRecoveryCodeService`. Wiped when a user's last method is removed.
+
+#### Hardening (.NET)
+- **Rate limiting** — IP-partitioned fixed-window limiter (`RateLimitFilter`, default 20/min/IP) on the sensitive endpoints (challenge verify/resend/recovery-code, enroll groups). Self-contained — no host `UseRateLimiter`. Returns `429 TOO_MANY_ATTEMPTS` + `Retry-After`. Configurable via `Omni2Fa:RateLimit`.
+- **Audit** — `IOmni2FaAuditSink` raising MethodEnrolled/Removed, LoginVerifySucceeded/Failed, RecoveryCodes{Generated,Regenerated}, RecoveryCodeUsed, RateLimitExceeded. Default `LoggerAuditSink` (structured `ILogger`) registered via `TryAdd`; hosts replace it.
+- **Last-method policy** — `AspNetCore.AllowDisablingLastMethod` (default true); when false, removing the last method returns `409 LAST_METHOD_PROTECTED`.
+
+#### Client (`@omni2fa/core`)
+- **Session-token API** — `setSessionToken`/`getSessionToken`, `credentials` config, `sessionStorageKey`. The request middleware now routes the pre-auth token to `/challenge/*` and the host session token to everything else, removing the custom-fetch workaround. `regenerateRecoveryCodes` / `verifyRecoveryCode` client methods; challenge-machine recovery-code branch; enrollment machines surface `recoveryCodes`.
+
+#### React (`@omni2fa/react`)
+- `useChallenge` gains `useRecoveryCode`.
+
+#### Protocol
+- OpenAPI `0.6.0`: recovery-code endpoints + `MethodCreatedResponse.recoveryCodes`.
+
+#### Example (`examples/full`)
+- Recovery codes shown once after first enrollment, regenerate button, recovery-code login path. `omni2fa.ts` simplified to use the session-token API (custom fetch removed).
+
 ## [0.3.0] — 2026-06-08
 
 ### Added

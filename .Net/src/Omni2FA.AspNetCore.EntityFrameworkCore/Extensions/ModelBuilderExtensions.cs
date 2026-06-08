@@ -26,6 +26,7 @@ public static class ModelBuilderExtensions {
         configure?.Invoke(options);
         modelBuilder.ApplyConfiguration(new TwoFactorMethodConfiguration(options));
         modelBuilder.ApplyConfiguration(new TwoFactorChallengeConfiguration(options));
+        modelBuilder.ApplyConfiguration(new RecoveryCodeConfiguration(options));
         return modelBuilder;
     }
 }

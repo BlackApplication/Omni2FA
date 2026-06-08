@@ -1,5 +1,6 @@
-import { createContext, useCallback, useMemo, useState, type ReactNode } from 'react';
+import { createContext, useCallback, useEffect, useMemo, useState, type ReactNode } from 'react';
 import { authClient, type LoginResponse } from '../api/authClient';
+import { omni } from '../omni2fa';
 
 interface AuthState {
     session: LoginResponse | null;
@@ -30,6 +31,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         if (next) globalThis.localStorage?.setItem(STORAGE_KEY, JSON.stringify(next));
         else globalThis.localStorage?.removeItem(STORAGE_KEY);
     }, []);
+
+    // Keep the Omni2FA client's host-session token in sync — it attaches it to /methods, /enroll/*, /recovery-codes/*.
+    useEffect(() => {
+        omni.client.setSessionToken(session?.sessionToken ?? null);
+    }, [session]);
 
     const logout = useCallback(() => setSession(null), [setSession]);
 

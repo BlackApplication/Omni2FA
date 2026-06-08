@@ -64,4 +64,6 @@ export type {
     VerifySuccessResponse,
     WebAuthnEnrollStartResponse,
     WebAuthnEnrollConfirmRequest,
+    RecoveryCodesResponse,
+    RecoveryCodeVerifyRequest,
 } from './types/dtos';

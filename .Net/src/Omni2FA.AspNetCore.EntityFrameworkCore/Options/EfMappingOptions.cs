@@ -17,4 +17,7 @@ public class EfMappingOptions {
 
     /// <summary>Table name for in-progress 2FA challenges.</summary>
     public string ChallengesTableName { get; set; } = "Omni2FaChallenges";
+
+    /// <summary>Table name for one-time recovery codes.</summary>
+    public string RecoveryCodesTableName { get; set; } = "Omni2FaRecoveryCodes";
 }

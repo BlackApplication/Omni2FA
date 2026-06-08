@@ -52,6 +52,13 @@ export function createChallengeMachine(client: IOmni2FaClient) {
                 }
                 return result.value;
             }),
+            verifyRecoveryCode: fromPromise(async ({ input }: { input: { code: string } }) => {
+                const result = await client.verifyRecoveryCode({ recoveryCode: input.code });
+                if (!result.ok) {
+                    throw new Omni2FaApiError(result.code, result.message, result.httpStatus, result.details ?? null);
+                }
+                return result.value;
+            }),
         },
     }).createMachine({
         id: 'challenge',
@@ -61,6 +68,7 @@ export function createChallengeMachine(client: IOmni2FaClient) {
             idle: {
                 on: {
                     pick: { target: 'starting' },
+                    useRecoveryCode: { target: 'verifyingRecovery' },
                 },
             },
             starting: {
@@ -117,7 +125,29 @@ export function createChallengeMachine(client: IOmni2FaClient) {
                 on: {
                     submit: { target: 'verifying' },
                     resend: { target: 'resending' },
+                    useRecoveryCode: { target: 'verifyingRecovery' },
                     reset: { target: 'idle', actions: assignInitial },
+                },
+            },
+            verifyingRecovery: {
+                invoke: {
+                    src: 'verifyRecoveryCode',
+                    input: ({ event }) => {
+                        if (event.type !== 'useRecoveryCode') throw new Error('verifyingRecovery requires useRecoveryCode event');
+                        return { code: event.code };
+                    },
+                    onDone: {
+                        target: 'verified',
+                        actions: ({ context, event }) => {
+                            context.userId = event.output.userId;
+                            context.errorCode = null;
+                            context.errorMessage = null;
+                        },
+                    },
+                    onError: {
+                        target: 'failed',
+                        actions: ({ context, event }) => assignApiError(context, event.error),
+                    },
                 },
             },
             resending: {
@@ -167,6 +197,7 @@ export function createChallengeMachine(client: IOmni2FaClient) {
             failed: {
                 on: {
                     pick: { target: 'starting' },
+                    useRecoveryCode: { target: 'verifyingRecovery' },
                     reset: { target: 'idle', actions: assignInitial },
                 },
             },

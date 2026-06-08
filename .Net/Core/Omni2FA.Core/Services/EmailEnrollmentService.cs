@@ -1,3 +1,4 @@
+using Omni2FA.Core.Audit;
 using Omni2FA.Core.Dtos;
 using Omni2FA.Core.Entities;
 using Omni2FA.Core.Enums;
@@ -13,14 +14,20 @@ public class EmailEnrollmentService : IEmailEnrollmentService {
     private readonly ITwoFactorMethodStore _methods;
     private readonly ITwoFactorChallengeStore _challenges;
     private readonly IEmailOtpService _emailOtp;
+    private readonly IRecoveryCodeService _recovery;
+    private readonly IOmni2FaAuditSink _audit;
 
     public EmailEnrollmentService(
         ITwoFactorMethodStore methods,
         ITwoFactorChallengeStore challenges,
-        IEmailOtpService emailOtp) {
+        IEmailOtpService emailOtp,
+        IRecoveryCodeService recovery,
+        IOmni2FaAuditSink audit) {
         _methods = methods;
         _challenges = challenges;
         _emailOtp = emailOtp;
+        _recovery = recovery;
+        _audit = audit;
     }
 
     public async Task<Result<EmailEnrollStartResponse>> StartAsync(string userId, EmailEnrollStartRequest request, CancellationToken cancellationToken = default) {
@@ -72,8 +79,17 @@ public class EmailEnrollmentService : IEmailEnrollmentService {
         await _challenges.MarkConsumedAsync(challenge, cancellationToken).ConfigureAwait(false);
         await _methods.SaveChangesAsync(cancellationToken).ConfigureAwait(false);
 
+        var recoveryCodes = await _recovery.GenerateIfNoneAsync(userId, cancellationToken).ConfigureAwait(false);
+        await _audit.RecordAsync(new Omni2FaAuditEvent {
+            Type = Omni2FaAuditEventType.MethodEnrolled,
+            UserId = userId,
+            MethodType = TwoFactorMethodType.Email,
+            MethodId = method.Id,
+        }, cancellationToken).ConfigureAwait(false);
+
         return Result<MethodCreatedResponse>.Success(new MethodCreatedResponse {
             MethodId = method.Id,
+            RecoveryCodes = recoveryCodes,
         });
     }
 

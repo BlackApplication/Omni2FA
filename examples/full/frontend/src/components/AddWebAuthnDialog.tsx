@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { Alert, Button, Dialog, DialogActions, DialogContent, DialogTitle, Stack, TextField, Typography } from '@mui/material';
 import { useWebAuthnEnrollment, useMethods } from '@omni2fa/react';
+import { RecoveryCodesView } from './RecoveryCodesView';
 
 /**
  * When @omni2fa/react-mui v0.5 ships, replace this whole component with the drop-in
@@ -14,6 +15,9 @@ export function AddWebAuthnDialog({ open, onClose }: { open: boolean; onClose: (
     useEffect(() => {
         if (status === 'enrolled') {
             load();
+            if (context.recoveryCodes) {
+                return undefined;
+            }
             const t = setTimeout(() => {
                 reset();
                 setName('');
@@ -22,7 +26,7 @@ export function AddWebAuthnDialog({ open, onClose }: { open: boolean; onClose: (
             return () => clearTimeout(t);
         }
         return undefined;
-    }, [status, load, reset, onClose]);
+    }, [status, context.recoveryCodes, load, reset, onClose]);
 
     function handleClose() {
         reset();
@@ -59,7 +63,15 @@ export function AddWebAuthnDialog({ open, onClose }: { open: boolean; onClose: (
 
                     {busy && <Typography>Follow your browser's prompt to finish…</Typography>}
 
-                    {status === 'enrolled' && <Alert severity="success">Passkey enrolled. Closing…</Alert>}
+                    {status === 'enrolled' && context.recoveryCodes && (
+                        <Stack spacing={2}>
+                            <Alert severity="success">Passkey enrolled.</Alert>
+                            <RecoveryCodesView codes={context.recoveryCodes} />
+                            <Button variant="contained" onClick={handleClose}>I saved my codes</Button>
+                        </Stack>
+                    )}
+
+                    {status === 'enrolled' && !context.recoveryCodes && <Alert severity="success">Passkey enrolled. Closing…</Alert>}
                 </Stack>
             </DialogContent>
             <DialogActions>

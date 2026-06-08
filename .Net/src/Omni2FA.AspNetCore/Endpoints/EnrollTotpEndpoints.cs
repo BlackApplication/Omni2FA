@@ -2,6 +2,7 @@ using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Routing;
 using Omni2FA.AspNetCore.Extensions;
+using Omni2FA.AspNetCore.Filters;
 using Omni2FA.AspNetCore.Services.Interfaces;
 using Omni2FA.Core.Dtos;
 using Omni2FA.Core.Services.Interfaces;
@@ -10,7 +11,7 @@ namespace Omni2FA.AspNetCore.Endpoints;
 
 internal static class EnrollTotpEndpoints {
     public static void Map(IEndpointRouteBuilder root) {
-        var group = root.MapGroup("/enroll/totp");
+        var group = root.MapGroup("/enroll/totp").AddEndpointFilter<RateLimitFilter>();
 
         group.MapPost("/start", async (
             ITotpEnrollmentService service,

@@ -13,11 +13,13 @@ interface TwoFactorChallengeNavState {
 export function TwoFactorChallengePage() {
     const navigate = useNavigate();
     const { setSession } = useAuth();
-    const { status, context, pick, submit, resend, reset } = useChallenge();
+    const { status, context, pick, submit, resend, useRecoveryCode, reset } = useChallenge();
     const location = useLocation();
     const available = (location.state as TwoFactorChallengeNavState | null)?.availableMethods ?? [];
     const [selectedMethodId, setSelectedMethodId] = useState(available[0]?.id ?? '');
     const [code, setCode] = useState('');
+    const [recoveryMode, setRecoveryMode] = useState(false);
+    const [recoveryCode, setRecoveryCode] = useState('');
     const [finalizingError, setFinalizingError] = useState<string | null>(null);
 
     // Once verify succeeds — call host's finalize to get the session JWT.
@@ -62,6 +64,11 @@ export function TwoFactorChallengePage() {
         submit(code);
     }
 
+    function verifyRecovery(e: React.FormEvent) {
+        e.preventDefault();
+        useRecoveryCode(recoveryCode.trim());
+    }
+
     return (
         <Container maxWidth="xs" sx={{ pt: 10 }}>
             <Paper elevation={2} sx={{ p: 4 }}>
@@ -70,7 +77,7 @@ export function TwoFactorChallengePage() {
                     {finalizingError && <Alert severity="error">{finalizingError}</Alert>}
                     {context.errorMessage && <Alert severity="error">{context.errorMessage}</Alert>}
 
-                    {(status === 'idle' || status === 'failed') && (
+                    {(status === 'idle' || status === 'failed') && !recoveryMode && (
                         <Stack spacing={2}>
                             <TextField select label="Method" value={selectedMethodId} onChange={(e) => setSelectedMethodId(e.target.value)}>
                                 {available.map((m) => (
@@ -78,6 +85,18 @@ export function TwoFactorChallengePage() {
                                 ))}
                             </TextField>
                             <Button variant="contained" onClick={startChallenge}>Continue</Button>
+                            <Button size="small" onClick={() => setRecoveryMode(true)}>Use a recovery code instead</Button>
+                        </Stack>
+                    )}
+
+                    {(status === 'idle' || status === 'failed' || status === 'verifyingRecovery') && recoveryMode && (
+                        <Stack component="form" spacing={2} onSubmit={verifyRecovery}>
+                            <Typography variant="body2" color="text.secondary">Enter one of your saved recovery codes.</Typography>
+                            <TextField label="Recovery code" value={recoveryCode} onChange={(e) => setRecoveryCode(e.target.value)} placeholder="XXXX-XXXX-XX" autoFocus />
+                            <Button type="submit" variant="contained" disabled={status === 'verifyingRecovery' || recoveryCode.trim().length === 0}>
+                                {status === 'verifyingRecovery' ? 'Verifying…' : 'Verify'}
+                            </Button>
+                            <Button size="small" onClick={() => setRecoveryMode(false)}>Back to methods</Button>
                         </Stack>
                     )}
 

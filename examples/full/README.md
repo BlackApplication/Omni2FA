@@ -67,10 +67,16 @@ Open `http://localhost:5173`.
 > `Omni2Fa:WebAuthn` `RelyingPartyId`/`Origins` must match the real hostname — see
 > `docs/FLOWS.md` → "Common deployment gotchas".
 
+### Recovery codes
+
+8. When you enroll your **first** method, a set of one-time **recovery codes** is shown — save them. They're hashed at rest and shown only once.
+9. **Regenerate recovery codes** from the 2FA card to invalidate the old set and get a fresh one.
+10. At login, click **Use a recovery code instead** on `/2fa` and enter one — it logs you in and is consumed (one-time).
+
 ### Manage
 
-8. Back on `/profile` — verified, host session JWT issued by `/auth/finalize`.
-9. Remove a method via the trash-can icon. With no methods left, the next sign in skips the 2FA step.
+11. Back on `/profile` — verified, host session JWT issued by `/auth/finalize`.
+12. Remove a method via the trash-can icon. With no methods left, recovery codes are wiped and the next sign in skips the 2FA step.
 
 > **Who owns what:** the host verifies the password and issues the final session JWT; Omni2FA issues
 > the short-lived pre-auth token and runs the 2FA ceremony. The **email address is supplied by the
@@ -112,6 +118,19 @@ By default codes are sent on a **background worker** (`Omni2Fa:Email:BackgroundD
 endpoints return instantly and SMTP latency/failures don't block the user — delivery errors are
 logged. Set it to `false` to send inline (awaited) if you'd rather have SMTP errors surface to the
 caller.
+
+## Production hardening (v0.6)
+
+Enabled by default in the library — visible in this example:
+
+- **Rate limiting** — sensitive endpoints (challenge verify/resend/recovery-code, enroll groups) are capped at 20 attempts/min/IP. Exceeding it returns `429` with `Retry-After`. Tune via `Omni2Fa:RateLimit` (`Enabled`, `PermitLimit`, `Window`).
+- **Audit** — every enroll/remove/verify/recovery/rate-limit event is logged (default `IOmni2FaAuditSink` → `ILogger`; watch the backend console). Register your own sink to forward to a DB/SIEM.
+- **Session-token client API** — `omni2fa.ts` no longer needs a custom `fetch`: `AuthContext` calls `omni.client.setSessionToken(...)`, and the client routes the pre-auth token to `/challenge/*` and the session token to host-session endpoints automatically.
+- **Last-method policy** — set `Omni2Fa:AspNetCore:AllowDisablingLastMethod` to `false` to forbid removing the user's last method (`409 LAST_METHOD_PROTECTED`).
+
+> Schema changed across versions (recovery-code table, email/webauthn columns). The example uses
+> `EnsureCreated()` (no migrations), so after pulling a new version delete `omni2fa-example.db` to
+> recreate the schema.
 
 ## Notes for v0.5
 

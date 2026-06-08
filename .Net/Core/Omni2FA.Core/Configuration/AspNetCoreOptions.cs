@@ -25,4 +25,10 @@ public class AspNetCoreOptions {
 
     /// <summary>How long a pending enrollment challenge remains valid before the user must restart the ceremony.</summary>
     public TimeSpan EnrollmentTtl { get; set; } = TimeSpan.FromMinutes(10);
+
+    /// <summary>
+    /// Whether a user may remove their last active method (dropping to no 2FA). Default <c>true</c>.
+    /// Set <c>false</c> for hosts that mandate 2FA — removing the last method then returns <c>409 LAST_METHOD_PROTECTED</c>.
+    /// </summary>
+    public bool AllowDisablingLastMethod { get; set; } = true;
 }

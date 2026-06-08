@@ -2,7 +2,7 @@ openapi: 3.1.0
 
 info:
   title: Omni2FA API
-  version: 0.3.0
+  version: 0.6.0
   summary: Cross-stack HTTP contract for multi-method 2FA.
   description: |
     The HTTP contract that any backend implementing Omni2FA must satisfy, and
@@ -63,6 +63,8 @@ tags:
     description: Enroll an Email OTP method — the host supplies the destination address, the server issues and sends a one-time code.
   - name: enroll-webauthn
     description: Enroll a WebAuthn credential (passkey or FIDO2 security key). The ceremony is browser-led — server issues options, browser produces an attestation, server verifies it.
+  - name: recovery-codes
+    description: One-time backup codes that substitute for any 2FA method at login. Generated on first method enrollment, shown once, hashed at rest.
 
 paths:
   # ------------------------------------------------------------------
@@ -197,6 +199,40 @@ paths:
           $ref: '#/components/responses/PreAuthInvalidOrExpired'
         '404':
           description: No active challenge for the given method under the current pre-auth user.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+
+  /challenge/recovery-code:
+    post:
+      tags: [challenge]
+      operationId: verifyRecoveryCode
+      summary: Complete login with a one-time recovery code instead of a 2FA method.
+      description: |
+        Method-agnostic fallback. Consumes the recovery code (one-time use) and, on success,
+        returns the verified `userId` exactly like `/challenge/verify`.
+      security:
+        - PreAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RecoveryCodeVerifyRequest'
+      responses:
+        '200':
+          description: Recovery code accepted.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/VerifySuccessResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          description: Code invalid, already used, or pre-auth invalid/expired.
           content:
             application/json:
               schema:
@@ -475,6 +511,29 @@ paths:
                 $ref: '#/components/schemas/ErrorResponse'
         '429':
           $ref: '#/components/responses/TooManyRequests'
+
+  # ------------------------------------------------------------------
+  #  recovery codes
+  # ------------------------------------------------------------------
+  /recovery-codes/regenerate:
+    post:
+      tags: [recovery-codes]
+      operationId: regenerateRecoveryCodes
+      summary: Generate a fresh set of recovery codes, invalidating all previous ones.
+      description: |
+        Returns the new plaintext codes **once**. Previous codes stop working immediately.
+        The frontend must display them and instruct the user to save them — no second chance.
+      security:
+        - HostSession: []
+      responses:
+        '200':
+          description: New codes generated.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RecoveryCodesResponse'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
 
 components:
 
@@ -784,7 +843,33 @@ components:
           type: string
           format: uuid
           description: Identifier of the newly created method.
-        # v0.4 will add `recoveryCodes: string[]` for first-method-enrollment responses.
+        recoveryCodes:
+          type: [array, "null"]
+          items:
+            type: string
+          description: |
+            Present only when this enrollment generated recovery codes (i.e. it was the user's
+            first method). Plaintext, shown once — the frontend must display and have the user
+            save them. Null on every subsequent enrollment.
+
+    RecoveryCodesResponse:
+      type: object
+      required: [recoveryCodes]
+      properties:
+        recoveryCodes:
+          type: array
+          items:
+            type: string
+          description: Fresh plaintext codes, shown once. Previous codes are now invalid.
+
+    RecoveryCodeVerifyRequest:
+      type: object
+      required: [recoveryCode]
+      properties:
+        recoveryCode:
+          type: string
+          description: A single unused recovery code. Dashes/spaces and case are normalized server-side.
+          example: 'A1B2-C3D4-E5'
 
     # --- Errors ---
 

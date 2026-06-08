@@ -11,7 +11,9 @@ namespace Omni2FA.AspNetCore.Endpoints;
 
 internal static class ChallengeEndpoints {
     public static void Map(IEndpointRouteBuilder root) {
-        var group = root.MapGroup("/challenge").AddEndpointFilter<PreAuthFilter>();
+        var group = root.MapGroup("/challenge")
+            .AddEndpointFilter<PreAuthFilter>()
+            .AddEndpointFilter<RateLimitFilter>();
 
         group.MapPost("/start", async (
             ChallengeStartRequest request,
@@ -49,6 +51,24 @@ internal static class ChallengeEndpoints {
         .ProducesProblem(StatusCodes.Status400BadRequest)
         .ProducesProblem(StatusCodes.Status401Unauthorized)
         .ProducesProblem(StatusCodes.Status404NotFound)
+        .ProducesProblem(StatusCodes.Status429TooManyRequests);
+
+        group.MapPost("/recovery-code", async (
+            RecoveryCodeVerifyRequest request,
+            IRecoveryCodeService service,
+            HttpContext http,
+            CancellationToken cancellationToken) =>
+        {
+            var userId = (string)http.Items[PreAuthContextItems.UserId]!;
+            var result = await service.VerifyAsync(userId, request, cancellationToken).ConfigureAwait(false);
+            return result.ToHttpResult();
+        })
+        .WithName("verifyRecoveryCode")
+        .WithTags("challenge")
+        .Accepts<RecoveryCodeVerifyRequest>("application/json")
+        .Produces<VerifySuccessResponse>(StatusCodes.Status200OK)
+        .ProducesProblem(StatusCodes.Status400BadRequest)
+        .ProducesProblem(StatusCodes.Status401Unauthorized)
         .ProducesProblem(StatusCodes.Status429TooManyRequests);
 
         group.MapPost("/verify", async (

@@ -10,6 +10,7 @@ const initialContext: WebAuthnEnrollmentContext = {
     optionsJson: null,
     name: null,
     methodId: null,
+    recoveryCodes: null,
     errorCode: null,
     errorMessage: null,
 };
@@ -85,6 +86,7 @@ export function createWebAuthnEnrollmentMachine(client: IOmni2FaClient) {
                         target: 'enrolled',
                         actions: ({ context, event }) => {
                             context.methodId = event.output.methodId;
+                            context.recoveryCodes = event.output.recoveryCodes ?? null;
                             context.errorCode = null;
                             context.errorMessage = null;
                         },
@@ -115,6 +117,7 @@ function assignInitial({ context }: { context: WebAuthnEnrollmentContext }) {
     context.optionsJson = null;
     context.name = null;
     context.methodId = null;
+    context.recoveryCodes = null;
     context.errorCode = null;
     context.errorMessage = null;
 }

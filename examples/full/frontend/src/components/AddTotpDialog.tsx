@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { Alert, Box, Button, Dialog, DialogActions, DialogContent, DialogTitle, Stack, TextField, Typography } from '@mui/material';
 import QRCode from 'react-qr-code';
 import { useTotpEnrollment, useMethods } from '@omni2fa/react';
+import { RecoveryCodesView } from './RecoveryCodesView';
 
 /**
  * When @omni2fa/react-mui v0.5 ships, replace this whole component with the drop-in
@@ -22,6 +23,10 @@ export function AddTotpDialog({ open, onClose }: { open: boolean; onClose: () =>
     useEffect(() => {
         if (status === 'enrolled') {
             load();
+            // Hold the dialog open if recovery codes were issued — the user must save them first.
+            if (context.recoveryCodes) {
+                return undefined;
+            }
             const t = setTimeout(() => {
                 reset();
                 setCode('');
@@ -31,7 +36,7 @@ export function AddTotpDialog({ open, onClose }: { open: boolean; onClose: () =>
             return () => clearTimeout(t);
         }
         return undefined;
-    }, [status, load, reset, onClose]);
+    }, [status, context.recoveryCodes, load, reset, onClose]);
 
     function handleSubmit(e: React.FormEvent) {
         e.preventDefault();
@@ -84,7 +89,15 @@ export function AddTotpDialog({ open, onClose }: { open: boolean; onClose: () =>
                         </Stack>
                     )}
 
-                    {status === 'enrolled' && <Alert severity="success">TOTP enrolled. Closing…</Alert>}
+                    {status === 'enrolled' && context.recoveryCodes && (
+                        <Stack spacing={2}>
+                            <Alert severity="success">TOTP enrolled.</Alert>
+                            <RecoveryCodesView codes={context.recoveryCodes} />
+                            <Button variant="contained" onClick={handleClose}>I saved my codes</Button>
+                        </Stack>
+                    )}
+
+                    {status === 'enrolled' && !context.recoveryCodes && <Alert severity="success">TOTP enrolled. Closing…</Alert>}
 
                     {status === 'failed' && (
                         <Stack spacing={2}>

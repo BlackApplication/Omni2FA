@@ -15,6 +15,8 @@ import type {
     EmailEnrollStartResponse,
     ErrorResponse,
     MethodCreatedResponse,
+    RecoveryCodesResponse,
+    RecoveryCodeVerifyRequest,
     TotpEnrollConfirmRequest,
     TotpEnrollStartResponse,
     TwoFactorMethodDto,
@@ -27,25 +29,35 @@ import type { IOmni2FaClient } from './Interfaces/IOmni2FaClient';
 import type { Omni2FaClientConfig } from './Omni2FaClientConfig';
 
 const DEFAULT_PREAUTH_KEY = 'omni2fa:preauth';
+const DEFAULT_SESSION_KEY = 'omni2fa:session';
 
 type FetchClient = ReturnType<typeof createClient<paths>>;
 
 export class Omni2FaClient implements IOmni2FaClient {
     private readonly storage: IStorage;
     private readonly preAuthKey: string;
+    private readonly sessionKey: string;
     private readonly inner: FetchClient;
 
     constructor(config: Omni2FaClientConfig) {
         this.storage = config.storage ?? new MemoryStorage();
         this.preAuthKey = config.preAuthStorageKey ?? DEFAULT_PREAUTH_KEY;
+        this.sessionKey = config.sessionStorageKey ?? DEFAULT_SESSION_KEY;
         this.inner = createClient<paths>({
             baseUrl: config.baseUrl,
             fetch: config.fetch ?? globalThis.fetch.bind(globalThis),
+            ...(config.credentials ? { credentials: config.credentials } : {}),
         });
         this.inner.use({
             onRequest: ({ request }) => {
-                const token = this.getPreAuthToken();
-                if (token && !request.headers.has('Authorization')) {
+                // A custom fetch / host-set header always wins.
+                if (request.headers.has('Authorization')) {
+                    return request;
+                }
+                // Pre-auth token guards the 2FA ceremony; everything else uses the host session token.
+                const isPreAuthEndpoint = request.url.includes('/challenge/');
+                const token = isPreAuthEndpoint ? this.getPreAuthToken() : this.getSessionToken();
+                if (token) {
                     request.headers.set('Authorization', `Bearer ${token}`);
                 }
                 return request;
@@ -54,15 +66,27 @@ export class Omni2FaClient implements IOmni2FaClient {
     }
 
     setPreAuthToken(token: string | null): void {
-        if (token === null || token.length === 0) {
-            this.storage.remove(this.preAuthKey);
-        } else {
-            this.storage.set(this.preAuthKey, token);
-        }
+        this.setToken(this.preAuthKey, token);
     }
 
     getPreAuthToken(): string | null {
         return this.storage.get(this.preAuthKey);
+    }
+
+    setSessionToken(token: string | null): void {
+        this.setToken(this.sessionKey, token);
+    }
+
+    getSessionToken(): string | null {
+        return this.storage.get(this.sessionKey);
+    }
+
+    private setToken(key: string, token: string | null): void {
+        if (token === null || token.length === 0) {
+            this.storage.remove(key);
+        } else {
+            this.storage.set(key, token);
+        }
     }
 
     async listMethods(): Promise<ClientCall<TwoFactorMethodDto[]>> {
@@ -125,6 +149,16 @@ export class Omni2FaClient implements IOmni2FaClient {
 
     async verifyChallenge(request: ChallengeVerifyRequest): Promise<ClientCall<VerifySuccessResponse>> {
         const { data, error, response } = await this.inner.POST('/challenge/verify', { body: request });
+        return this.toCall(data, error, response);
+    }
+
+    async verifyRecoveryCode(request: RecoveryCodeVerifyRequest): Promise<ClientCall<VerifySuccessResponse>> {
+        const { data, error, response } = await this.inner.POST('/challenge/recovery-code', { body: request });
+        return this.toCall(data, error, response);
+    }
+
+    async regenerateRecoveryCodes(): Promise<ClientCall<RecoveryCodesResponse>> {
+        const { data, error, response } = await this.inner.POST('/recovery-codes/regenerate');
         return this.toCall(data, error, response);
     }
 

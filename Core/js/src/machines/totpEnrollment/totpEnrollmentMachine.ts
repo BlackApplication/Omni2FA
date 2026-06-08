@@ -9,6 +9,7 @@ const initialContext: TotpEnrollmentContext = {
     otpAuthUri: null,
     secret: null,
     methodId: null,
+    recoveryCodes: null,
     errorCode: null,
     errorMessage: null,
 };
@@ -86,6 +87,7 @@ export function createTotpEnrollmentMachine(client: IOmni2FaClient) {
                         target: 'enrolled',
                         actions: ({ context, event }) => {
                             context.methodId = event.output.methodId;
+                            context.recoveryCodes = event.output.recoveryCodes ?? null;
                             context.errorCode = null;
                             context.errorMessage = null;
                         },
@@ -116,6 +118,7 @@ function assignInitial({ context }: { context: TotpEnrollmentContext }) {
     context.otpAuthUri = null;
     context.secret = null;
     context.methodId = null;
+    context.recoveryCodes = null;
     context.errorCode = null;
     context.errorMessage = null;
 }

@@ -1,5 +1,6 @@
 using System.Text;
 using Microsoft.Extensions.Options;
+using Omni2FA.Core.Audit;
 using Omni2FA.Core.Configuration;
 using Omni2FA.Core.Dtos;
 using Omni2FA.Core.Entities;
@@ -19,6 +20,7 @@ public class TwoFactorChallengeService : ITwoFactorChallengeService {
     private readonly ISecretProtector _protector;
     private readonly IEmailOtpService _emailOtp;
     private readonly IWebAuthnCeremonyService _webAuthn;
+    private readonly IOmni2FaAuditSink _audit;
     private readonly TimeSpan _webAuthnTtl;
 
     public TwoFactorChallengeService(
@@ -28,6 +30,7 @@ public class TwoFactorChallengeService : ITwoFactorChallengeService {
         ISecretProtector protector,
         IEmailOtpService emailOtp,
         IWebAuthnCeremonyService webAuthn,
+        IOmni2FaAuditSink audit,
         IOptions<Omni2FaOptions> options) {
         _methods = methods;
         _challenges = challenges;
@@ -35,6 +38,7 @@ public class TwoFactorChallengeService : ITwoFactorChallengeService {
         _protector = protector;
         _emailOtp = emailOtp;
         _webAuthn = webAuthn;
+        _audit = audit;
         _webAuthnTtl = options.Value.AspNetCore.EnrollmentTtl;
     }
 
@@ -90,11 +94,13 @@ public class TwoFactorChallengeService : ITwoFactorChallengeService {
             _ => false,
         };
         if (!verified) {
+            await AuditAsync(Omni2FaAuditEventType.LoginVerifyFailed, userId, method, cancellationToken).ConfigureAwait(false);
             return Result<VerifySuccessResponse>.Failure(Omni2FaErrorCodes.InvalidCode);
         }
 
         await _methods.MarkUsedAsync(method, cancellationToken).ConfigureAwait(false);
         await _methods.SaveChangesAsync(cancellationToken).ConfigureAwait(false);
+        await AuditAsync(Omni2FaAuditEventType.LoginVerifySucceeded, userId, method, cancellationToken).ConfigureAwait(false);
 
         return Success(userId);
     }
@@ -199,6 +205,7 @@ public class TwoFactorChallengeService : ITwoFactorChallengeService {
         if (result is null) {
             await _challenges.IncrementFailedAttemptsAsync(challenge, cancellationToken).ConfigureAwait(false);
             await _challenges.SaveChangesAsync(cancellationToken).ConfigureAwait(false);
+            await AuditAsync(Omni2FaAuditEventType.LoginVerifyFailed, userId, method, cancellationToken).ConfigureAwait(false);
             return Result<VerifySuccessResponse>.Failure(Omni2FaErrorCodes.WebAuthnVerificationFailed);
         }
 
@@ -206,8 +213,18 @@ public class TwoFactorChallengeService : ITwoFactorChallengeService {
         await _challenges.MarkConsumedAsync(challenge, cancellationToken).ConfigureAwait(false);
         await _methods.MarkUsedAsync(method, cancellationToken).ConfigureAwait(false);
         await _methods.SaveChangesAsync(cancellationToken).ConfigureAwait(false);
+        await AuditAsync(Omni2FaAuditEventType.LoginVerifySucceeded, userId, method, cancellationToken).ConfigureAwait(false);
 
         return Success(userId);
+    }
+
+    private Task AuditAsync(Omni2FaAuditEventType type, string userId, TwoFactorMethod method, CancellationToken cancellationToken) {
+        return _audit.RecordAsync(new Omni2FaAuditEvent {
+            Type = type,
+            UserId = userId,
+            MethodType = method.Type,
+            MethodId = method.Id,
+        }, cancellationToken);
     }
 
     private static Result<VerifySuccessResponse> Success(string userId) {

@@ -10,6 +10,7 @@ const initialContext: EmailEnrollmentContext = {
     expiresAt: null,
     resendAvailableAt: null,
     methodId: null,
+    recoveryCodes: null,
     errorCode: null,
     errorMessage: null,
 };
@@ -115,6 +116,7 @@ export function createEmailEnrollmentMachine(client: IOmni2FaClient) {
                         target: 'enrolled',
                         actions: ({ context, event }) => {
                             context.methodId = event.output.methodId;
+                            context.recoveryCodes = event.output.recoveryCodes ?? null;
                             context.errorCode = null;
                             context.errorMessage = null;
                         },
@@ -154,6 +156,7 @@ function assignInitial({ context }: { context: EmailEnrollmentContext }) {
     context.expiresAt = null;
     context.resendAvailableAt = null;
     context.methodId = null;
+    context.recoveryCodes = null;
     context.errorCode = null;
     context.errorMessage = null;
 }

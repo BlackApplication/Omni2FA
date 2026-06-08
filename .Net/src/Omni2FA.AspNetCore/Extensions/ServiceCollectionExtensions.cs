@@ -3,6 +3,7 @@ using Microsoft.AspNetCore.Http;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
 using Microsoft.Extensions.Options;
+using Omni2FA.AspNetCore.Audit;
 using Omni2FA.AspNetCore.Email;
 using Omni2FA.AspNetCore.Filters;
 using Omni2FA.AspNetCore.Services;
@@ -38,6 +39,11 @@ public static class ServiceCollectionExtensions {
         services.AddScoped<ITotpEnrollmentService, TotpEnrollmentService>();
         services.AddScoped<ITwoFactorChallengeService, TwoFactorChallengeService>();
         services.AddScoped<IEmailEnrollmentService, EmailEnrollmentService>();
+        services.AddScoped<IRecoveryCodeService, RecoveryCodeService>();
+
+        // Audit is opt-in: default writes structured ILogger records; a host sink replaces it.
+        services.TryAddSingleton<IOmni2FaAuditSink, LoggerAuditSink>();
+        services.AddSingleton<RateLimitFilter>();
 
         // Email OTP: transport and copy are pluggable (TryAdd → host registrations win); the OTP
         // primitive is scoped so it can consume a host-registered scoped IEmailSender if present.

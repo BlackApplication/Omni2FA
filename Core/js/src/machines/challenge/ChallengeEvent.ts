@@ -3,4 +3,5 @@ export type ChallengeEvent =
     | { type: 'pick'; methodId: string }
     | { type: 'submit'; code: string }
     | { type: 'resend' }
+    | { type: 'useRecoveryCode'; code: string }
     | { type: 'reset' };

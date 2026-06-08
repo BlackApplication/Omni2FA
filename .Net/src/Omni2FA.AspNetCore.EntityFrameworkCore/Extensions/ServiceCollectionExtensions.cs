@@ -16,6 +16,7 @@ public static class ServiceCollectionExtensions {
     public static IServiceCollection AddOmni2FaEntityFrameworkStore<TDbContext>(this IServiceCollection services) where TDbContext : DbContext {
         services.AddScoped<ITwoFactorMethodStore>(sp => new TwoFactorMethodStore(sp.GetRequiredService<TDbContext>()));
         services.AddScoped<ITwoFactorChallengeStore>(sp => new TwoFactorChallengeStore(sp.GetRequiredService<TDbContext>()));
+        services.AddScoped<IRecoveryCodeStore>(sp => new RecoveryCodeStore(sp.GetRequiredService<TDbContext>()));
         return services;
     }
 }

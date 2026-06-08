@@ -96,6 +96,27 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/challenge/recovery-code": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Complete login with a one-time recovery code instead of a 2FA method.
+         * @description Method-agnostic fallback. Consumes the recovery code (one-time use) and, on success,
+         *     returns the verified `userId` exactly like `/challenge/verify`.
+         */
+        post: operations["verifyRecoveryCode"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/challenge/verify": {
         parameters: {
             query?: never;
@@ -252,6 +273,27 @@ export interface paths {
          *     and persists the method on success.
          */
         post: operations["confirmTotpEnrollment"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/recovery-codes/regenerate": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Generate a fresh set of recovery codes, invalidating all previous ones.
+         * @description Returns the new plaintext codes **once**. Previous codes stop working immediately.
+         *     The frontend must display them and instruct the user to save them — no second chance.
+         */
+        post: operations["regenerateRecoveryCodes"];
         delete?: never;
         options?: never;
         head?: never;
@@ -466,6 +508,23 @@ export interface components {
              * @description Identifier of the newly created method.
              */
             methodId: string;
+            /**
+             * @description Present only when this enrollment generated recovery codes (i.e. it was the user's
+             *     first method). Plaintext, shown once — the frontend must display and have the user
+             *     save them. Null on every subsequent enrollment.
+             */
+            recoveryCodes?: string[] | null;
+        };
+        RecoveryCodesResponse: {
+            /** @description Fresh plaintext codes, shown once. Previous codes are now invalid. */
+            recoveryCodes: string[];
+        };
+        RecoveryCodeVerifyRequest: {
+            /**
+             * @description A single unused recovery code. Dashes/spaces and case are normalized server-side.
+             * @example A1B2-C3D4-E5
+             */
+            recoveryCode: string;
         };
         /**
          * @description Uniform error envelope returned by every non-2xx response. Frontends
@@ -666,6 +725,41 @@ export interface operations {
             401: components["responses"]["PreAuthInvalidOrExpired"];
             /** @description No active challenge for the given method under the current pre-auth user. */
             404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            429: components["responses"]["TooManyRequests"];
+        };
+    };
+    verifyRecoveryCode: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["RecoveryCodeVerifyRequest"];
+            };
+        };
+        responses: {
+            /** @description Recovery code accepted. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["VerifySuccessResponse"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            /** @description Code invalid, already used, or pre-auth invalid/expired. */
+            401: {
                 headers: {
                     [name: string]: unknown;
                 };
@@ -955,6 +1049,27 @@ export interface operations {
                 };
             };
             429: components["responses"]["TooManyRequests"];
+        };
+    };
+    regenerateRecoveryCodes: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description New codes generated. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RecoveryCodesResponse"];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
         };
     };
 }
