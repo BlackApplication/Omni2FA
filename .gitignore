@@ -21,3 +21,5 @@ appsettings.Development.json
 *.user
 *.suo
 /.claude/settings.local.json
+
+/artifacts
