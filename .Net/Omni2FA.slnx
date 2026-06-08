@@ -1,7 +1,6 @@
 <Solution>
   <Folder Name="/Core/">
     <Project Path="Core/Omni2FA.Core/Omni2FA.Core.csproj" />
-    <Project Path="Core/Omni2FA.WebAuthn/Omni2FA.WebAuthn.csproj" />
   </Folder>
   <Folder Name="/src/">
     <Project Path="src/Omni2FA.AspNetCore.EntityFrameworkCore/Omni2FA.AspNetCore.EntityFrameworkCore.csproj" />

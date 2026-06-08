@@ -5,7 +5,7 @@ using Fido2NetLib.Objects;
 using Omni2FA.Core.Services.Interfaces;
 using Omni2FA.Core.Services.WebAuthn;
 
-namespace Omni2FA.WebAuthn;
+namespace Omni2FA.AspNetCore.WebAuthn;
 
 /// <summary>Fido2NetLib-backed implementation of <see cref="IWebAuthnCeremonyService"/>. Holds no state — the configured <see cref="IFido2"/> carries relying-party settings.</summary>
 public class Fido2WebAuthnCeremonyService : IWebAuthnCeremonyService {

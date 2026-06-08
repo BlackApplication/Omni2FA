@@ -13,7 +13,7 @@ The same rule applies on both sides of the stack:
 | Stack | Framework-agnostic core | Adapters |
 |-------|-------------------------|----------|
 | JavaScript | `@omni2fa/core` (`Core/js/`) | `@omni2fa/react`, `@omni2fa/react-mui` (`React/*`), future `@omni2fa/vue`, `@omni2fa/angular`, `@omni2fa/svelte`… |
-| .NET | `Omni2FA.Core`, `Omni2FA.WebAuthn` (`.Net/Core/`) | `Omni2FA.AspNetCore`, `Omni2FA.AspNetCore.EntityFrameworkCore` (`.Net/src/`) |
+| .NET | `Omni2FA.Core` (`.Net/Core/`) | `Omni2FA.AspNetCore`, `Omni2FA.AspNetCore.EntityFrameworkCore` (`.Net/src/`) |
 
 Realistic split target: **~80% of UI-related logic lives in core**, ~20% is unavoidable framework-specific reactivity/lifecycle glue. We will not pretend the adapter is "just rendering" — but we will pretend it is **stateless logic-wise** and enforce that ruthlessly.
 
@@ -181,8 +181,7 @@ Physical layout inside `.Net/` reflects the core/adapter boundary directly:
 .Net/
 ├── Omni2FA.sln
 ├── Core/                                  ← framework-agnostic backbone
-│   ├── Omni2FA.Core/
-│   └── Omni2FA.WebAuthn/
+│   └── Omni2FA.Core/
 └── src/                                   ← ASP.NET-specific adapters
     ├── Omni2FA.AspNetCore/
     └── Omni2FA.AspNetCore.EntityFrameworkCore/
@@ -191,19 +190,21 @@ Physical layout inside `.Net/` reflects the core/adapter boundary directly:
 Project dependency graph:
 
 ```
-                Omni2FA.Core                                    (in .Net/Core/ — no AspNetCore, no EF, no HTTP)
+                Omni2FA.Core                                    (in .Net/Core/ — no AspNetCore, no EF, no HTTP, no Fido2)
                     ↑
-        ┌───────────┼───────────────────────────────┐
-        │           │                               │
-Omni2FA.WebAuthn  Omni2FA.AspNetCore             Omni2FA.AspNetCore.EntityFrameworkCore
-(in .Net/Core/)   (in .Net/src/ — Core +         (in .Net/src/ — Core + EF Core only;
-                  WebAuthn + AspNetCore)          no AspNetCore reference)
+        ┌───────────┴───────────────────────────────┐
+        │                                           │
+Omni2FA.AspNetCore                             Omni2FA.AspNetCore.EntityFrameworkCore
+(in .Net/src/ — Core + ASP.NET +               (in .Net/src/ — Core + EF Core only;
+ Fido2NetLib + MailKit)                         no AspNetCore reference)
 ```
 
 `Omni2FA.AspNetCore.EntityFrameworkCore` only implements the `Omni2FA.Core` store interfaces with EF Core. It does **not** depend on `Omni2FA.AspNetCore` — hosts that use a custom HTTP layer (Worker Service, gRPC, minimal API rolled by hand) can still pull in just the EF adapter.
 
+**WebAuthn is part of the ASP.NET adapter, not a separate package.** `Omni2FA.Core` defines the FIDO2-free `IWebAuthnCeremonyService` contract; the Fido2NetLib implementation lives inside `Omni2FA.AspNetCore`. Earlier drafts had a standalone `Omni2FA.WebAuthn` package, but WebAuthn is a first-class 2FA method that every ASP.NET host gets anyway — a separate package added a publish/version unit for no real consumer benefit (the core stays Fido2-free either way). Folded in for simplicity; a host that doesn't want passkeys simply doesn't enrol them.
+
 Rules:
-- `Omni2FA.Core` and `Omni2FA.WebAuthn` live in **`.Net/Core/`**. They reference no ASP.NET, no EF, no HTTP — pure domain + interfaces + standards-based crypto.
+- `Omni2FA.Core` lives in **`.Net/Core/`**. It references no ASP.NET, no EF, no HTTP, no Fido2 — pure domain + interfaces + standards-based crypto (TOTP).
 - `.Net/src/` holds **adapter packages** — store implementations, HTTP-layer packages, etc. A project lives in `src/` if it pulls in any infrastructure dependency (EF Core, ASP.NET Core, a specific HTTP client).
 - Adapters are **independent siblings** — `Omni2FA.AspNetCore.EntityFrameworkCore` does NOT depend on `Omni2FA.AspNetCore`. Each adapter pulls only `Omni2FA.Core` plus its own infrastructure SDK.
 - `Omni2FA.sln` lives in `.Net/` root and references projects from both `Core/` and `src/`.
@@ -285,3 +286,4 @@ This document is the contract for that choice.
 - **2026-05-21** — added section 8 "Configurability (binding)". Migration from existing custom 2FA implementations is a first-class scenario; no hardcoded magic strings in core, all collision-prone settings exposed via `Omni2FaOptions` or pluggable interfaces. Original "Why this matters" renumbered to 9, change log to 10.
 - **2026-05-21** — .NET dependency graph clarified: adapter packages (`Omni2FA.AspNetCore.EntityFrameworkCore`, future `Omni2FA.Dapper`, etc.) are **siblings**, all depending only on `Omni2FA.Core` plus their own infrastructure SDK. EF adapter no longer references `Omni2FA.AspNetCore`. Hosts can pull just the EF adapter without dragging in ASP.NET endpoints.
 - **2026-05-21** — pre-auth token transport principle recorded in section 7: Bearer-only by design through v1.x, opt-in cookie transport scheduled for v1.6 as a parallel option (not a replacement). Rationale: Bearer requires zero host config, behaves identically across every backend adapter, and keeps the OpenAPI contract free of cookie-policy concerns that belong to the host's session strategy.
+- **2026-06-08** — the standalone `Omni2FA.WebAuthn` package was folded into `Omni2FA.AspNetCore` (.NET drops from 4 to 3 packages). WebAuthn is a first-class 2FA method every ASP.NET host receives anyway; a separate package was speculative future-proofing (swappable crypto lib) that no consumer needed. The `IWebAuthnCeremonyService` contract stays in `Omni2FA.Core`, so the core remains FIDO2-free — only the Fido2NetLib implementation moved into the adapter. Section 6 updated to match.

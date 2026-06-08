@@ -67,10 +67,9 @@ Omni2FA/
 ├── .Net/                              # Self-contained .NET solution
 │   ├── Omni2FA.sln
 │   ├── Core/                          # Framework-agnostic .NET backbone
-│   │   ├── Omni2FA.Core/              # Models, interfaces, services (no I/O, no ASP.NET, no EF)
-│   │   └── Omni2FA.WebAuthn/          # WebAuthn ceremony (Fido2NetLib only)
+│   │   └── Omni2FA.Core/              # Models, interfaces, services, WebAuthn contract (no I/O, no ASP.NET, no EF, no Fido2)
 │   └── src/                           # ASP.NET-specific adapters
-│       ├── Omni2FA.AspNetCore/                    # Endpoints, DI, filters, email
+│       ├── Omni2FA.AspNetCore/                    # Endpoints, DI, filters, email, WebAuthn ceremony (Fido2NetLib)
 │       └── Omni2FA.AspNetCore.EntityFrameworkCore/ # Optional EF Core store adapter
 │
 ├── examples/        # End-to-end demo apps

@@ -12,7 +12,7 @@ using Omni2FA.AspNetCore.Services.Interfaces;
 using Omni2FA.Core.Configuration;
 using Omni2FA.Core.Services;
 using Omni2FA.Core.Services.Interfaces;
-using Omni2FA.WebAuthn;
+using Omni2FA.AspNetCore.WebAuthn;
 
 namespace Omni2FA.AspNetCore.Extensions;
 

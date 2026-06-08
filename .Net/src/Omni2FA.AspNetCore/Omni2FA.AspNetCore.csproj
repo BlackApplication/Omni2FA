@@ -12,11 +12,11 @@
 
   <ItemGroup>
     <PackageReference Include="MailKit" Version="4.16.0" />
+    <PackageReference Include="Fido2" Version="4.0.1" />
   </ItemGroup>
 
   <ItemGroup>
     <ProjectReference Include="..\..\Core\Omni2FA.Core\Omni2FA.Core.csproj" />
-    <ProjectReference Include="..\..\Core\Omni2FA.WebAuthn\Omni2FA.WebAuthn.csproj" />
   </ItemGroup>
 
 </Project>

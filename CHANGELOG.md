@@ -15,6 +15,7 @@ OpenAPI stays at `0.6.0`.
 
 ### Refactor
 - Extracted the shared enrollment tail (first-method recovery codes + `MethodEnrolled` audit) into `IEnrollmentFinalizer`, removing the duplication across the three enrollment services.
+- **Packaging:** folded the standalone `Omni2FA.WebAuthn` package into `Omni2FA.AspNetCore` — the .NET side now ships **3** NuGet packages instead of 4. The `IWebAuthnCeremonyService` contract stays in `Omni2FA.Core` (core remains FIDO2-free); only the Fido2NetLib implementation moved into the adapter. Consumers still just install `Omni2FA.AspNetCore` (+ the EF store).
 
 ## [0.6.0] — 2026-06-08
 

@@ -4,7 +4,7 @@ namespace Omni2FA.Core.Services.Interfaces;
 
 /// <summary>
 /// WebAuthn ceremony primitive — builds creation/assertion options and verifies browser responses.
-/// Implemented by <c>Omni2FA.WebAuthn</c> on Fido2NetLib; the interface stays free of any FIDO2 types
+/// Implemented in <c>Omni2FA.AspNetCore</c> on Fido2NetLib; the interface stays free of any FIDO2 types
 /// so core orchestration never depends on the crypto library.
 /// </summary>
 public interface IWebAuthnCeremonyService {
