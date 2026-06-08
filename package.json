@@ -1,6 +1,6 @@
 {
   "name": "omni2fa-monorepo",
-  "version": "0.2.0",
+  "version": "0.3.0",
   "private": true,
   "type": "module",
   "description": "Omni2FA monorepo — multi-method 2FA library for any stack. This root package is not published; see Core/js, React/react, and React/react-mui for the publishable packages.",

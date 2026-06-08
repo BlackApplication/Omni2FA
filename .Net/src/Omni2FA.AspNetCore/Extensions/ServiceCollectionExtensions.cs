@@ -1,6 +1,8 @@
+using Fido2NetLib;
 using Microsoft.AspNetCore.Http;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
+using Microsoft.Extensions.Options;
 using Omni2FA.AspNetCore.Email;
 using Omni2FA.AspNetCore.Filters;
 using Omni2FA.AspNetCore.Services;
@@ -8,6 +10,7 @@ using Omni2FA.AspNetCore.Services.Interfaces;
 using Omni2FA.Core.Configuration;
 using Omni2FA.Core.Services;
 using Omni2FA.Core.Services.Interfaces;
+using Omni2FA.WebAuthn;
 
 namespace Omni2FA.AspNetCore.Extensions;
 
@@ -48,6 +51,19 @@ public static class ServiceCollectionExtensions {
         services.AddSingleton<EmailDispatchChannel>();
         services.AddScoped<IEmailDispatcher, EmailDispatcher>();
         services.AddHostedService<EmailDispatchBackgroundService>();
+
+        // WebAuthn: a single Fido2 instance carries the relying-party config, built lazily so the
+        // bound WebAuthnOptions are available. Ceremony impl is replaceable via TryAdd.
+        services.TryAddSingleton<IFido2>(sp => {
+            var webAuthn = sp.GetRequiredService<IOptions<Omni2FaOptions>>().Value.WebAuthn;
+            return new Fido2(new Fido2Configuration {
+                ServerDomain = webAuthn.RelyingPartyId,
+                ServerName = webAuthn.RelyingPartyName,
+                Origins = webAuthn.Origins.ToHashSet(StringComparer.Ordinal),
+            });
+        });
+        services.TryAddSingleton<IWebAuthnCeremonyService, Fido2WebAuthnCeremonyService>();
+        services.AddScoped<IWebAuthnEnrollmentService, WebAuthnEnrollmentService>();
 
         services.TryAddSingleton<IUserContextAccessor, UserContextAccessor>();
 

@@ -30,7 +30,7 @@ The goal is one method working end-to-end across .NET + React + EF before broade
 |---------|-----------|-------|--------|
 | **v0.1** | TOTP end-to-end | `.NET endpoints + EF store + React headless hooks. Enroll TOTP, login with TOTP. Pre-auth token issued.` | ✅ |
 | **v0.2** | Email OTP | `Built-in SMTP sender (MailKit) + templated emails + i18n scaffold (en at minimum). Pluggable IEmailSender for users with their own infra.` | ✅ |
-| **v0.3** | WebAuthn | `Passkeys + hardware keys via Fido2NetLib + @simplewebauthn/*. Multiple credentials per user (configurable cap).` | ⬜ |
+| **v0.3** | WebAuthn | `Passkeys + hardware keys via Fido2NetLib + native browser marshaling. Multiple credentials per user (configurable cap).` | ✅ |
 | **v0.4** | Recovery codes | `Hash-stored, generated on first method enrollment, regeneration endpoint, one-time use, shown once. Replaces 2FA on login.` | ⬜ |
 | **v0.5** | Ready UI (`@omni2fa/react-mui`) | `Drop-in dialogs — TwoFactorSection, enrollment dialogs per method, regenerate dialog. MUI styled, themeable.` | ⬜ |
 | **v0.6** | Stabilization | `Rate limiting hardening (default 20 attempts/min/IP), audit sink interface finalized, error code catalogue locked, OpenAPI 1.0 frozen, host-session-token client API smoothing (setSessionToken / clearSessionToken on Omni2FaClient — see Deferred section).` | ⬜ |
@@ -172,7 +172,7 @@ examples/
 |---------|---------------|
 | **v0.1** | Skeleton + TOTP enroll/login. Run with `dotnet run` + `npm run dev`. SQLite, no external services. **This is the first sandbox you can poke.** |
 | **v0.2** | + Email OTP. Local SMTP catcher (Mailpit/Papercut on `localhost:1025`) for testing emails. SQLite replaces InMemory. ✅ |
-| **v0.3** | + WebAuthn enrollment & login. Works on localhost without HTTPS (per spec). Any non-localhost origin needs TLS — see `docs/FLOWS.md` → "Common deployment gotchas". |
+| **v0.3** | + WebAuthn enrollment & login. Works on localhost without HTTPS (per spec). Any non-localhost origin needs TLS — see `docs/FLOWS.md` → "Common deployment gotchas". ✅ |
 | **v0.4** | + Recovery codes UX. Generation modal, use-on-login flow. |
 | **v0.5** | Frontend swaps raw headless usage for `@omni2fa/react-mui` ready dialogs. Same backend. |
 | **v0.6** | + audit hook example (logs to console). + rate limit visibly enforced. |

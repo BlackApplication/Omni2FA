@@ -47,6 +47,10 @@ public class TwoFactorMethodStore : ITwoFactorMethodStore {
         return query.OrderByDescending(m => m.CreatedAt).FirstOrDefaultAsync(cancellationToken);
     }
 
+    public Task<bool> WebAuthnCredentialExistsAsync(byte[] credentialId, CancellationToken cancellationToken = default) {
+        return Set.AsNoTracking().AnyAsync(m => m.WebAuthnCredentialId == credentialId, cancellationToken);
+    }
+
     public Task AddAsync(TwoFactorMethod method, CancellationToken cancellationToken = default) {
         if (method.CreatedAt == default) {
             method.CreatedAt = DateTime.UtcNow;

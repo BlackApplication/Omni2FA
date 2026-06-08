@@ -175,6 +175,45 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/enroll/webauthn/start": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Begin WebAuthn enrollment — issue credential creation options.
+         * @description Returns `PublicKeyCredentialCreationOptions` (as `optionsJson`) for the browser to pass to
+         *     `navigator.credentials.create()`. The pending ceremony is persisted; the browser attestation
+         *     is posted back to `/confirm`.
+         */
+        post: operations["startWebAuthnEnrollment"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/enroll/webauthn/confirm": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Confirm WebAuthn enrollment by verifying the browser attestation. */
+        post: operations["confirmWebAuthnEnrollment"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/enroll/totp/start": {
         parameters: {
             query?: never;
@@ -288,6 +327,11 @@ export interface components {
              * @description For Email — earliest time a resend is permitted. Null for TOTP.
              */
             resendAvailableAt?: string | null;
+            /**
+             * @description For WebAuthn — `PublicKeyCredentialRequestOptions` JSON to pass to
+             *     `navigator.credentials.get()`. Null for TOTP and Email.
+             */
+            optionsJson?: string | null;
         };
         ChallengeResendRequest: {
             /**
@@ -299,11 +343,10 @@ export interface components {
         ChallengeVerifyRequest: {
             /** Format: uuid */
             methodId: string;
-            /**
-             * @description For TOTP and Email — 6-digit numeric code.
-             *     For WebAuthn (v0.3+) — base64url-encoded assertion JSON.
-             */
-            code: string;
+            /** @description For TOTP and Email — the 6-digit numeric code. Null for WebAuthn. */
+            code?: string | null;
+            /** @description For WebAuthn — the JSON from `navigator.credentials.get()`. Null for TOTP and Email. */
+            assertionResponseJson?: string | null;
         };
         VerifySuccessResponse: {
             /** @description Always `true` on this response. Failures use `4xx` with `ErrorResponse`. */
@@ -361,6 +404,29 @@ export interface components {
              * @description Value returned from `/enroll/email/start`.
              */
             enrollmentId: string;
+        };
+        WebAuthnEnrollStartResponse: {
+            /**
+             * Format: uuid
+             * @description Identifier for the pending ceremony. Pass back in `confirm`.
+             */
+            enrollmentId: string;
+            /**
+             * @description `PublicKeyCredentialCreationOptions` JSON for `navigator.credentials.create()`.
+             *     Challenge, user id, and excluded credential ids are base64url-encoded.
+             */
+            optionsJson: string;
+        };
+        WebAuthnEnrollConfirmRequest: {
+            /**
+             * Format: uuid
+             * @description Value returned from `/enroll/webauthn/start`.
+             */
+            enrollmentId: string;
+            /** @description The JSON produced by `navigator.credentials.create()`, base64url-encoded fields. */
+            attestationResponseJson: string;
+            /** @description Optional human-readable label for this credential (e.g. "YubiKey 5"). */
+            name?: string | null;
         };
         TotpEnrollStartResponse: {
             /**
@@ -750,6 +816,79 @@ export interface operations {
                 };
             };
             429: components["responses"]["TooManyRequests"];
+        };
+    };
+    startWebAuthnEnrollment: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Creation options issued. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["WebAuthnEnrollStartResponse"];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            /** @description The per-user WebAuthn credential cap has been reached. */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    confirmWebAuthnEnrollment: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["WebAuthnEnrollConfirmRequest"];
+            };
+        };
+        responses: {
+            /** @description WebAuthn credential enrolled. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MethodCreatedResponse"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            /** @description Attestation failed verification, or no pending enrollment. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description No pending WebAuthn enrollment for this user, or it has expired. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
         };
     };
     startTotpEnrollment: {

@@ -83,6 +83,8 @@ export function TwoFactorChallengePage() {
 
                     {status === 'starting' && <Typography>Preparing…</Typography>}
 
+                    {status === 'asserting' && <Typography>Follow your browser's prompt to verify with your passkey…</Typography>}
+
                     {(status === 'awaitingCode' || status === 'resending' || status === 'verifying') && (
                         <Stack component="form" spacing={2} onSubmit={verifyCode}>
                             <Typography variant="body2" color="text.secondary">

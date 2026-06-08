@@ -19,6 +19,8 @@ import type {
     TotpEnrollStartResponse,
     TwoFactorMethodDto,
     VerifySuccessResponse,
+    WebAuthnEnrollConfirmRequest,
+    WebAuthnEnrollStartResponse,
 } from '../types/dtos';
 import type { ClientCall } from './Interfaces/ClientCall';
 import type { IOmni2FaClient } from './Interfaces/IOmni2FaClient';
@@ -98,6 +100,16 @@ export class Omni2FaClient implements IOmni2FaClient {
 
     async resendEmailEnrollment(request: EmailEnrollResendRequest): Promise<ClientCall<EmailEnrollStartResponse>> {
         const { data, error, response } = await this.inner.POST('/enroll/email/resend', { body: request });
+        return this.toCall(data, error, response);
+    }
+
+    async startWebAuthnEnrollment(): Promise<ClientCall<WebAuthnEnrollStartResponse>> {
+        const { data, error, response } = await this.inner.POST('/enroll/webauthn/start');
+        return this.toCall(data, error, response);
+    }
+
+    async confirmWebAuthnEnrollment(request: WebAuthnEnrollConfirmRequest): Promise<ClientCall<MethodCreatedResponse>> {
+        const { data, error, response } = await this.inner.POST('/enroll/webauthn/confirm', { body: request });
         return this.toCall(data, error, response);
     }
 

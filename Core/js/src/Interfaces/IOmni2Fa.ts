@@ -3,12 +3,14 @@ import type { ChallengeActor } from '../machines/challenge/challengeMachine';
 import type { EmailEnrollmentActor } from '../machines/emailEnrollment/emailEnrollmentMachine';
 import type { MethodsActor } from '../machines/methods/methodsMachine';
 import type { TotpEnrollmentActor } from '../machines/totpEnrollment/totpEnrollmentMachine';
+import type { WebAuthnEnrollmentActor } from '../machines/webauthnEnrollment/webauthnEnrollmentMachine';
 
 /** Assembled Omni2FA core — client plus running xstate actors and a teardown hook. */
 export interface IOmni2Fa {
     client: IOmni2FaClient;
     totpEnrollment: TotpEnrollmentActor;
     emailEnrollment: EmailEnrollmentActor;
+    webauthnEnrollment: WebAuthnEnrollmentActor;
     challenge: ChallengeActor;
     methods: MethodsActor;
     /** Stops all internal actors. Call on app teardown or when switching users. */

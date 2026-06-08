@@ -1,6 +1,6 @@
 import type { ChallengeContext } from '@omni2fa/core';
 
-export type ChallengeStatus = 'idle' | 'starting' | 'awaitingCode' | 'resending' | 'verifying' | 'verified' | 'failed';
+export type ChallengeStatus = 'idle' | 'starting' | 'awaitingCode' | 'resending' | 'asserting' | 'verifying' | 'verified' | 'failed';
 
 /** Shape returned by <c>useChallenge</c>. */
 export interface IUseChallengeResult {

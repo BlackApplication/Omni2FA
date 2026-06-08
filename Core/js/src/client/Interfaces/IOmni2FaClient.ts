@@ -12,6 +12,8 @@ import type {
     TotpEnrollStartResponse,
     TwoFactorMethodDto,
     VerifySuccessResponse,
+    WebAuthnEnrollConfirmRequest,
+    WebAuthnEnrollStartResponse,
 } from '../../types/dtos';
 import type { ClientCall } from './ClientCall';
 
@@ -26,6 +28,9 @@ export interface IOmni2FaClient {
     startEmailEnrollment(request: EmailEnrollStartRequest): Promise<ClientCall<EmailEnrollStartResponse>>;
     confirmEmailEnrollment(request: EmailEnrollConfirmRequest): Promise<ClientCall<MethodCreatedResponse>>;
     resendEmailEnrollment(request: EmailEnrollResendRequest): Promise<ClientCall<EmailEnrollStartResponse>>;
+
+    startWebAuthnEnrollment(): Promise<ClientCall<WebAuthnEnrollStartResponse>>;
+    confirmWebAuthnEnrollment(request: WebAuthnEnrollConfirmRequest): Promise<ClientCall<MethodCreatedResponse>>;
 
     startChallenge(request: ChallengeStartRequest): Promise<ClientCall<ChallengeStartResponse>>;
     resendChallenge(request: ChallengeResendRequest): Promise<ClientCall<ChallengeStartResponse>>;

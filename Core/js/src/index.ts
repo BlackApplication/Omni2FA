@@ -25,6 +25,13 @@ export type { EmailEnrollmentActor, EmailEnrollmentMachine } from './machines/em
 export type { EmailEnrollmentContext } from './machines/emailEnrollment/EmailEnrollmentContext';
 export type { EmailEnrollmentEvent } from './machines/emailEnrollment/EmailEnrollmentEvent';
 
+export { createWebAuthnEnrollmentMachine } from './machines/webauthnEnrollment/webauthnEnrollmentMachine';
+export type { WebAuthnEnrollmentActor, WebAuthnEnrollmentMachine } from './machines/webauthnEnrollment/webauthnEnrollmentMachine';
+export type { WebAuthnEnrollmentContext } from './machines/webauthnEnrollment/WebAuthnEnrollmentContext';
+export type { WebAuthnEnrollmentEvent } from './machines/webauthnEnrollment/WebAuthnEnrollmentEvent';
+
+export { startRegistration, startAuthentication } from './webauthn/ceremony';
+
 export { createChallengeMachine } from './machines/challenge/challengeMachine';
 export type { ChallengeActor, ChallengeMachine } from './machines/challenge/challengeMachine';
 export type { ChallengeContext } from './machines/challenge/ChallengeContext';
@@ -55,4 +62,6 @@ export type {
     TwoFactorMethodDto,
     TwoFactorMethodType,
     VerifySuccessResponse,
+    WebAuthnEnrollStartResponse,
+    WebAuthnEnrollConfirmRequest,
 } from './types/dtos';

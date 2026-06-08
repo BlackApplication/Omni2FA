@@ -20,6 +20,9 @@ public interface ITwoFactorMethodStore {
     /// <summary>Find a method of the given type for a user.</summary>
     Task<TwoFactorMethod?> GetByTypeAsync(string userId, TwoFactorMethodType type, bool activeOnly = true, CancellationToken cancellationToken = default);
 
+    /// <summary>Returns true if any method (any user) already holds the given WebAuthn credential id — credential ids must be globally unique.</summary>
+    Task<bool> WebAuthnCredentialExistsAsync(byte[] credentialId, CancellationToken cancellationToken = default);
+
     /// <summary>Add a new method. Implementations stamp <see cref="TwoFactorMethod.CreatedAt"/> if unset.</summary>
     Task AddAsync(TwoFactorMethod method, CancellationToken cancellationToken = default);
 

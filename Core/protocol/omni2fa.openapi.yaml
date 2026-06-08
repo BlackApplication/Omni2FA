@@ -2,7 +2,7 @@ openapi: 3.1.0
 
 info:
   title: Omni2FA API
-  version: 0.2.0
+  version: 0.3.0
   summary: Cross-stack HTTP contract for multi-method 2FA.
   description: |
     The HTTP contract that any backend implementing Omni2FA must satisfy, and
@@ -61,6 +61,8 @@ tags:
     description: Enroll a TOTP authenticator (Google Authenticator, Authy, 1Password, …).
   - name: enroll-email
     description: Enroll an Email OTP method — the host supplies the destination address, the server issues and sends a one-time code.
+  - name: enroll-webauthn
+    description: Enroll a WebAuthn credential (passkey or FIDO2 security key). The ceremony is browser-led — server issues options, browser produces an attestation, server verifies it.
 
 paths:
   # ------------------------------------------------------------------
@@ -343,6 +345,71 @@ paths:
           $ref: '#/components/responses/TooManyRequests'
 
   # ------------------------------------------------------------------
+  #  enrollment — WebAuthn
+  # ------------------------------------------------------------------
+  /enroll/webauthn/start:
+    post:
+      tags: [enroll-webauthn]
+      operationId: startWebAuthnEnrollment
+      summary: Begin WebAuthn enrollment — issue credential creation options.
+      description: |
+        Returns `PublicKeyCredentialCreationOptions` (as `optionsJson`) for the browser to pass to
+        `navigator.credentials.create()`. The pending ceremony is persisted; the browser attestation
+        is posted back to `/confirm`.
+      security:
+        - HostSession: []
+      responses:
+        '200':
+          description: Creation options issued.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/WebAuthnEnrollStartResponse'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '409':
+          description: The per-user WebAuthn credential cap has been reached.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /enroll/webauthn/confirm:
+    post:
+      tags: [enroll-webauthn]
+      operationId: confirmWebAuthnEnrollment
+      summary: Confirm WebAuthn enrollment by verifying the browser attestation.
+      security:
+        - HostSession: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/WebAuthnEnrollConfirmRequest'
+      responses:
+        '200':
+          description: WebAuthn credential enrolled.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MethodCreatedResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          description: Attestation failed verification, or no pending enrollment.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: No pending WebAuthn enrollment for this user, or it has expired.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  # ------------------------------------------------------------------
   #  enrollment — TOTP
   # ------------------------------------------------------------------
   /enroll/totp/start:
@@ -541,6 +608,11 @@ components:
           type: [string, "null"]
           format: date-time
           description: For Email — earliest time a resend is permitted. Null for TOTP.
+        optionsJson:
+          type: [string, "null"]
+          description: |
+            For WebAuthn — `PublicKeyCredentialRequestOptions` JSON to pass to
+            `navigator.credentials.get()`. Null for TOTP and Email.
 
     ChallengeResendRequest:
       type: object
@@ -553,16 +625,17 @@ components:
 
     ChallengeVerifyRequest:
       type: object
-      required: [methodId, code]
+      required: [methodId]
       properties:
         methodId:
           type: string
           format: uuid
         code:
-          type: string
-          description: |
-            For TOTP and Email — 6-digit numeric code.
-            For WebAuthn (v0.3+) — base64url-encoded assertion JSON.
+          type: [string, "null"]
+          description: For TOTP and Email — the 6-digit numeric code. Null for WebAuthn.
+        assertionResponseJson:
+          type: [string, "null"]
+          description: For WebAuthn — the JSON from `navigator.credentials.get()`. Null for TOTP and Email.
 
     VerifySuccessResponse:
       type: object
@@ -634,6 +707,37 @@ components:
           type: string
           format: uuid
           description: Value returned from `/enroll/email/start`.
+
+    # --- WebAuthn enrollment ---
+
+    WebAuthnEnrollStartResponse:
+      type: object
+      required: [enrollmentId, optionsJson]
+      properties:
+        enrollmentId:
+          type: string
+          format: uuid
+          description: Identifier for the pending ceremony. Pass back in `confirm`.
+        optionsJson:
+          type: string
+          description: |
+            `PublicKeyCredentialCreationOptions` JSON for `navigator.credentials.create()`.
+            Challenge, user id, and excluded credential ids are base64url-encoded.
+
+    WebAuthnEnrollConfirmRequest:
+      type: object
+      required: [enrollmentId, attestationResponseJson]
+      properties:
+        enrollmentId:
+          type: string
+          format: uuid
+          description: Value returned from `/enroll/webauthn/start`.
+        attestationResponseJson:
+          type: string
+          description: The JSON produced by `navigator.credentials.create()`, base64url-encoded fields.
+        name:
+          type: [string, "null"]
+          description: Optional human-readable label for this credential (e.g. "YubiKey 5").
 
     # --- TOTP enrollment ---
 

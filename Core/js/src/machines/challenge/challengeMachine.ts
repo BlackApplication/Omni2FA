@@ -1,6 +1,7 @@
 import { fromPromise, setup, type ActorRefFrom } from 'xstate';
 import type { IOmni2FaClient } from '../../client/Interfaces/IOmni2FaClient';
 import { Omni2FaApiError } from '../../errors/Omni2FaApiError';
+import { startAuthentication } from '../../webauthn/ceremony';
 import type { ChallengeContext } from './ChallengeContext';
 import type { ChallengeEvent } from './ChallengeEvent';
 
@@ -10,6 +11,7 @@ const initialContext: ChallengeContext = {
     userId: null,
     expiresAt: null,
     resendAvailableAt: null,
+    optionsJson: null,
     errorCode: null,
     errorMessage: null,
 };
@@ -42,6 +44,14 @@ export function createChallengeMachine(client: IOmni2FaClient) {
                 }
                 return result.value;
             }),
+            assertChallenge: fromPromise(async ({ input }: { input: { methodId: string; optionsJson: string } }) => {
+                const assertionResponseJson = await startAuthentication(input.optionsJson);
+                const result = await client.verifyChallenge({ methodId: input.methodId, assertionResponseJson });
+                if (!result.ok) {
+                    throw new Omni2FaApiError(result.code, result.message, result.httpStatus, result.details ?? null);
+                }
+                return result.value;
+            }),
         },
     }).createMachine({
         id: 'challenge',
@@ -65,9 +75,37 @@ export function createChallengeMachine(client: IOmni2FaClient) {
                         if (!context.methodId) throw new Error('no methodId');
                         return { methodId: context.methodId };
                     },
+                    onDone: [
+                        {
+                            guard: ({ event }) => event.output.type === 'WebAuthn',
+                            target: 'asserting',
+                            actions: ({ context, event }) => assignStartOutput(context, event.output),
+                        },
+                        {
+                            target: 'awaitingCode',
+                            actions: ({ context, event }) => assignStartOutput(context, event.output),
+                        },
+                    ],
+                    onError: {
+                        target: 'failed',
+                        actions: ({ context, event }) => assignApiError(context, event.error),
+                    },
+                },
+            },
+            asserting: {
+                invoke: {
+                    src: 'assertChallenge',
+                    input: ({ context }) => {
+                        if (!context.methodId || !context.optionsJson) throw new Error('no assertion options');
+                        return { methodId: context.methodId, optionsJson: context.optionsJson };
+                    },
                     onDone: {
-                        target: 'awaitingCode',
-                        actions: ({ context, event }) => assignStartOutput(context, event.output),
+                        target: 'verified',
+                        actions: ({ context, event }) => {
+                            context.userId = event.output.userId;
+                            context.errorCode = null;
+                            context.errorMessage = null;
+                        },
                     },
                     onError: {
                         target: 'failed',
@@ -136,10 +174,11 @@ export function createChallengeMachine(client: IOmni2FaClient) {
     });
 }
 
-function assignStartOutput(context: ChallengeContext, output: { type: ChallengeContext['methodType']; expiresAt?: string | null; resendAvailableAt?: string | null }) {
+function assignStartOutput(context: ChallengeContext, output: { type: ChallengeContext['methodType']; expiresAt?: string | null; resendAvailableAt?: string | null; optionsJson?: string | null }) {
     context.methodType = output.type;
     context.expiresAt = output.expiresAt ?? null;
     context.resendAvailableAt = output.resendAvailableAt ?? null;
+    context.optionsJson = output.optionsJson ?? null;
     context.errorCode = null;
     context.errorMessage = null;
 }
@@ -150,6 +189,7 @@ function assignInitial({ context }: { context: ChallengeContext }) {
     context.userId = null;
     context.expiresAt = null;
     context.resendAvailableAt = null;
+    context.optionsJson = null;
     context.errorCode = null;
     context.errorMessage = null;
 }

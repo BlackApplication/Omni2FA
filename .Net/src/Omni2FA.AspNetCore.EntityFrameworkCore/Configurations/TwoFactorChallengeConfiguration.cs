@@ -27,7 +27,7 @@ public class TwoFactorChallengeConfiguration : IEntityTypeConfiguration<TwoFacto
         builder.Property(c => c.TotpSecretCandidate).HasMaxLength(512);
         builder.Property(c => c.EmailOtpHash).HasMaxLength(256);
         builder.Property(c => c.EmailAddress).HasMaxLength(256);
-        builder.Property(c => c.WebAuthnChallenge).HasMaxLength(256);
+        // No length cap — holds the full WebAuthn options JSON (creation or assertion), which exceeds 256 bytes.
         builder.Property(c => c.CreatedAt).IsRequired();
         builder.Property(c => c.ExpiresAt).IsRequired();
         builder.Property(c => c.FailedAttempts).IsRequired();

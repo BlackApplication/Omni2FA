@@ -4,15 +4,17 @@ import DeleteOutlineIcon from '@mui/icons-material/DeleteOutline';
 import { useMethods } from '@omni2fa/react';
 import { AddTotpDialog } from './AddTotpDialog';
 import { AddEmailDialog } from './AddEmailDialog';
+import { AddWebAuthnDialog } from './AddWebAuthnDialog';
 
 /**
  * Profile-page 2FA card — list of enrolled methods + actions.
- * TOTP and Email are wired; WebAuthn lands in v0.3.
+ * TOTP, Email, and WebAuthn (passkeys) are all wired.
  */
 export function TwoFactorSection() {
     const { items, status, errorMessage, remove } = useMethods();
     const [totpDialogOpen, setTotpDialogOpen] = useState(false);
     const [emailDialogOpen, setEmailDialogOpen] = useState(false);
+    const [webAuthnDialogOpen, setWebAuthnDialogOpen] = useState(false);
     const hasTotp = items.some((m) => m.type === 'Totp');
     const hasEmail = items.some((m) => m.type === 'Email');
 
@@ -28,6 +30,9 @@ export function TwoFactorSection() {
                             </Button>
                             <Button variant="outlined" size="small" disabled={hasEmail} onClick={() => setEmailDialogOpen(true)}>
                                 Add Email
+                            </Button>
+                            <Button variant="outlined" size="small" onClick={() => setWebAuthnDialogOpen(true)}>
+                                Add Passkey
                             </Button>
                         </Stack>
                     </Stack>
@@ -64,6 +69,7 @@ export function TwoFactorSection() {
             <Box>
                 <AddTotpDialog open={totpDialogOpen} onClose={() => setTotpDialogOpen(false)} />
                 <AddEmailDialog open={emailDialogOpen} onClose={() => setEmailDialogOpen(false)} />
+                <AddWebAuthnDialog open={webAuthnDialogOpen} onClose={() => setWebAuthnDialogOpen(false)} />
             </Box>
         </Card>
     );

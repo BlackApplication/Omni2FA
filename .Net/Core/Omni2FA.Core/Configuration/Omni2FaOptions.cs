@@ -17,6 +17,9 @@ public class Omni2FaOptions {
     /// <summary>Email OTP settings — code shape, lifetimes, sender identity, SMTP transport.</summary>
     public EmailOptions Email { get; set; } = new();
 
+    /// <summary>WebAuthn relying-party settings — RP id/name, allowed origins, per-user credential cap.</summary>
+    public WebAuthnOptions WebAuthn { get; set; } = new();
+
     /// <summary>Pre-auth token settings — signing key, issuer, audience, TTL.</summary>
     public PreAuthOptions PreAuth { get; set; } = new();
 

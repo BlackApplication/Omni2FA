@@ -16,4 +16,7 @@ public class ChallengeStartResponse {
 
     /// <summary>UTC. For Email — earliest time a resend is permitted. Null for TOTP.</summary>
     public DateTime? ResendAvailableAt { get; init; }
+
+    /// <summary>For WebAuthn — `PublicKeyCredentialRequestOptions` JSON for <c>navigator.credentials.get()</c>. Null otherwise.</summary>
+    public string? OptionsJson { get; init; }
 }

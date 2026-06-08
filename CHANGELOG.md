@@ -2,6 +2,33 @@
 
 All notable changes to Omni2FA will be documented in this file. Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); versions follow [SemVer](https://semver.org/).
 
+## [0.3.0] — 2026-06-08
+
+### Added
+
+#### .NET
+- WebAuthn (passkeys & FIDO2 security keys) enrollment endpoints: `POST /enroll/webauthn/start` (issues creation options) and `POST /enroll/webauthn/confirm` (verifies the attestation). WebAuthn login via `/challenge/start` (issues assertion options) and `/challenge/verify` (validates the assertion, updates the signature counter).
+- `Omni2FA.WebAuthn` project filled in: `Fido2WebAuthnCeremonyService` on Fido2NetLib 4.x — resident keys, sign-count tracking, globally-unique credential ids, per-user cap (`MAX_METHODS_REACHED`).
+- `IWebAuthnCeremonyService` in core (FIDO2-free interface + value objects) so orchestration never depends on the crypto library; `WebAuthnEnrollmentService` orchestrates ceremony + stores.
+- `WebAuthnOptions` (RP id/name, allowed origins, `MaxCredentialsPerUser`) bound under `Omni2Fa:WebAuthn`.
+- `ChallengeVerifyRequest.assertionResponseJson` and `ChallengeStartResponse.optionsJson` added; `code` is now optional.
+
+#### TypeScript core (`@omni2fa/core`)
+- WebAuthn browser marshaling (`startRegistration`, `startAuthentication`) — base64url ↔ ArrayBuffer, `navigator.credentials.create/get`.
+- `webauthnEnrollmentMachine` (start → auto browser ceremony → confirm) and challenge-machine WebAuthn branch (auto-assert on pick). Client methods `startWebAuthnEnrollment`, `confirmWebAuthnEnrollment`.
+
+#### React adapter (`@omni2fa/react`)
+- `useWebAuthnEnrollment` + `useWebAuthnEnrollmentSelector`.
+
+#### Protocol
+- OpenAPI bumped to `0.3.0` with the WebAuthn enrollment endpoints and assertion fields.
+
+#### Example (`examples/full`)
+- Passkey enrollment dialog and passkey login path. `Omni2Fa:WebAuthn` configured for `localhost` / `http://localhost:5173`.
+
+### Changed
+- TypeScript DTO aliases consolidated from one file each into a single `types/dtos.ts` barrel (pure generated-type aliases aren't "concepts" — see `docs/CODE_STYLE.md` rule 1).
+
 ## [0.2.0] — 2026-06-08
 
 ### Added

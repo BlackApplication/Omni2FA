@@ -13,6 +13,10 @@ export { useEmailEnrollment } from './hooks/useEmailEnrollment';
 export { useEmailEnrollmentSelector } from './hooks/useEmailEnrollmentSelector';
 export type { IUseEmailEnrollmentResult, EmailEnrollmentStatus } from './Interfaces/IUseEmailEnrollmentResult';
 
+export { useWebAuthnEnrollment } from './hooks/useWebAuthnEnrollment';
+export { useWebAuthnEnrollmentSelector } from './hooks/useWebAuthnEnrollmentSelector';
+export type { IUseWebAuthnEnrollmentResult, WebAuthnEnrollmentStatus } from './Interfaces/IUseWebAuthnEnrollmentResult';
+
 export { useChallenge } from './hooks/useChallenge';
 export { useChallengeSelector } from './hooks/useChallengeSelector';
 export type { IUseChallengeResult, ChallengeStatus } from './Interfaces/IUseChallengeResult';

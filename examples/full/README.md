@@ -1,11 +1,12 @@
 # Omni2FA — Example app
 
 End-to-end sandbox for the Omni2FA library. A single growing reference app — updated with every
-`v0.x` release. As of **v0.2** it demonstrates: register, sign in, enroll a **TOTP** authenticator
-or an **Email OTP** method, sign out, sign back in and verify with either method, manage methods.
+`v0.x` release. As of **v0.3** it demonstrates: register, sign in, enroll a **TOTP** authenticator,
+an **Email OTP** method, or a **WebAuthn passkey / security key**, sign out, sign back in and verify
+with any enrolled method, manage methods.
 
 > This is **one** full example (`examples/full`) — host backend (ASP.NET Core) + host frontend
-> (React) wiring Omni2FA in. It is the same app across versions; WebAuthn/passkeys join it in v0.3.
+> (React) wiring Omni2FA in. It is the same app across versions.
 
 ## Prerequisites
 
@@ -57,10 +58,19 @@ Open `http://localhost:5173`.
 4. On `/profile`, click **Add Email**. Enter any address (it doesn't have to be real — the code lands in Mailpit). A code is emailed; open `http://localhost:8025`, copy it, confirm. Use **Resend code** if the cooldown has passed.
 5. **Sign out**, **sign in** again, and on `/2fa` pick the **Email** method. A fresh code is sent — grab it from Mailpit and verify. **Resend code** is available there too.
 
+### WebAuthn (passkey / security key)
+
+6. On `/profile`, click **Add Passkey**. Your browser/OS prompts (Touch ID, Windows Hello, a security key, or a synced passkey). Approve it — the credential is registered. You can add up to 3.
+7. **Sign out**, **sign in** again, pick the **passkey** method on `/2fa`, and approve the browser prompt — no code to type. The signature counter is updated server-side each login.
+
+> WebAuthn works on `localhost` without HTTPS. On any other origin it requires TLS and the
+> `Omni2Fa:WebAuthn` `RelyingPartyId`/`Origins` must match the real hostname — see
+> `docs/FLOWS.md` → "Common deployment gotchas".
+
 ### Manage
 
-6. Back on `/profile` — verified, host session JWT issued by `/auth/finalize`.
-7. Remove a method via the trash-can icon. With no methods left, the next sign in skips the 2FA step.
+8. Back on `/profile` — verified, host session JWT issued by `/auth/finalize`.
+9. Remove a method via the trash-can icon. With no methods left, the next sign in skips the 2FA step.
 
 > **Who owns what:** the host verifies the password and issues the final session JWT; Omni2FA issues
 > the short-lived pre-auth token and runs the 2FA ceremony. The **email address is supplied by the
@@ -78,13 +88,13 @@ examples/full/
 │   ├── Dtos/Auth/                LoginRequest/Response, TwoFactorChallengeResponse, …
 │   ├── AppDbContext.cs           ApplyOmni2FaConfiguration() wires the 2FA tables
 │   ├── Program.cs                AddOmni2Fa + MapOmni2Fa + JwtBearer for host session; SQLite + EnsureCreated
-│   └── appsettings.json          dev keys + Omni2Fa:Email SMTP (points at localhost:1025)
+│   └── appsettings.json          dev keys + Omni2Fa:Email SMTP (localhost:1025) + Omni2Fa:WebAuthn (localhost)
 └── frontend/                     Vite + React 19 + MUI v6
     ├── src/
     │   ├── api/authClient.ts     host's own auth fetchers (NOT part of Omni2FA)
     │   ├── auth/                 AuthContext holding the host session JWT
     │   ├── pages/                LoginPage, RegisterPage, TwoFactorChallengePage, ProfilePage
-    │   ├── components/           TwoFactorSection, AddTotpDialog, AddEmailDialog, ProtectedRoute
+    │   ├── components/           TwoFactorSection, AddTotpDialog, AddEmailDialog, AddWebAuthnDialog, ProtectedRoute
     │   ├── omni2fa.ts            createOmni2Fa({ baseUrl: '/api/2fa' }) singleton
     │   └── main.tsx              ThemeProvider + Omni2FaProvider + AuthProvider
     └── vite.config.ts            proxies /auth, /user, /api to the backend
@@ -105,6 +115,6 @@ caller.
 
 ## Notes for v0.5
 
-`TwoFactorSection.tsx`, `AddTotpDialog.tsx`, and `AddEmailDialog.tsx` are hand-rolled here against
-`@omni2fa/react` headless hooks. When `@omni2fa/react-mui` ships (v0.5 milestone), drop them and
-import the styled equivalents directly.
+`TwoFactorSection.tsx`, `AddTotpDialog.tsx`, `AddEmailDialog.tsx`, and `AddWebAuthnDialog.tsx` are
+hand-rolled here against `@omni2fa/react` headless hooks. When `@omni2fa/react-mui` ships (v0.5
+milestone), drop them and import the styled equivalents directly.
