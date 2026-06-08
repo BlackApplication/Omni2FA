@@ -2,7 +2,7 @@ openapi: 3.1.0
 
 info:
   title: Omni2FA API
-  version: 0.6.0
+  version: 0.7.0
   summary: Cross-stack HTTP contract for multi-method 2FA.
   description: |
     The HTTP contract that any backend implementing Omni2FA must satisfy, and
@@ -698,7 +698,7 @@ components:
 
     VerifySuccessResponse:
       type: object
-      required: [verified, userId]
+      required: [verified, userId, verifiedToken, expiresAt]
       properties:
         verified:
           type: boolean
@@ -707,9 +707,17 @@ components:
           type: string
           maxLength: 64
           description: |
-            Verified user's identifier, stringified. The host application casts
-            this to its native userId type (Guid/long/int/email) and uses it to
-            mint its final session JWT/cookie. Omni2FA does not issue session tokens.
+            Verified user's id, stringified. Informational only — the host derives the user
+            from `verifiedToken`, not this (the client could otherwise claim any id).
+        verifiedToken:
+          type: string
+          description: |
+            Verified-handoff token — proof the ceremony passed. The frontend forwards it to the
+            host's finalize endpoint, which validates it server-side and mints the session.
+        expiresAt:
+          type: string
+          format: date-time
+          description: When `verifiedToken` expires (UTC).
 
     # --- Email enrollment ---
 

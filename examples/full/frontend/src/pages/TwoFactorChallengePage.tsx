@@ -24,12 +24,12 @@ export function TwoFactorChallengePage() {
 
     // Once verify succeeds — call host's finalize to get the session JWT.
     useEffect(() => {
-        if (status !== 'verified' || !context.userId) return;
+        if (status !== 'verified' || !context.verifiedToken) return;
         let cancelled = false;
         (async () => {
             try {
-                // The pre-auth token (still valid post-verify) is the proof the server re-validates.
-                const session = await authClient.finalize(omni.client.getPreAuthToken());
+                // The verified-handoff token is the proof the server re-validates.
+                const session = await authClient.finalize(context.verifiedToken);
                 if (cancelled) return;
                 setSession(session);
                 omni.client.setPreAuthToken(null);
@@ -42,7 +42,7 @@ export function TwoFactorChallengePage() {
         return () => {
             cancelled = true;
         };
-    }, [status, context.userId, navigate, reset, setSession]);
+    }, [status, context.verifiedToken, navigate, reset, setSession]);
 
     if (available.length === 0) {
         return (

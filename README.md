@@ -62,10 +62,20 @@ public class AuthService(IPreAuthTokenIssuer preAuth, ITwoFactorMethodStore meth
     }
     // else: mint your session as usual
 
-    // when the frontend finishes 2FA, it calls your "finalize" with the pre-auth token:
-    var verifiedUserId = preAuth.ValidateAndGetUserId(token);      // null if invalid/expired → reject
+    // when the frontend finishes 2FA, it calls your "finalize" with the verifiedToken from the verify response:
+    var verifiedUserId = preAuth.ValidateVerified(verifiedToken);  // null if not actually verified → reject
 }
 ```
+
+**Use the DTOs the library already ships** at the host seam — don't reinvent them (all in `Omni2FA.Core.Dtos` / `.Services`):
+
+| DTO | Where you use it |
+|-----|------------------|
+| `PreAuthTokenInfo` | returned by `Issue` / `IssueVerified` — `{ Token, ExpiresAt }` |
+| `PreAuthChallengeResponse` | your login response when 2FA is required — `{ PreAuthToken, AvailableMethods, ExpiresAt }` |
+| `TwoFactorMethodDto` | shape of an enrolled method (`AvailableMethods` items) |
+| `VerifySuccessResponse` | the `/challenge/verify` body — `{ Verified, UserId, VerifiedToken, ExpiresAt }` |
+| `ErrorResponse` + `Omni2FaErrorCodes` | error envelope and the stable error-code constants |
 
 **`appsettings.json`**
 ```jsonc
@@ -109,7 +119,7 @@ import { useChallenge } from '@omni2fa/react';
 const { status, context, pick, submit, useRecoveryCode } = useChallenge();
 // pick(methodId) → submit(code)  (WebAuthn auto-runs the browser ceremony)
 // status: 'idle' | 'awaitingCode' | 'asserting' | 'verifying' | 'verified' | 'failed' | …
-// on 'verified': context.userId → call your finalize endpoint
+// on 'verified': send context.verifiedToken to your finalize endpoint (not the pre-auth token)
 ```
 
 Hooks: `useMethods`, `useTotpEnrollment`, `useEmailEnrollment`, `useWebAuthnEnrollment`, `useChallenge` (+ `*Selector` variants). A full headless UI you can copy lives in [`examples/full/frontend`](examples/full/frontend). Styled drop-in components (`@omni2fa/react-mui`) are planned.
@@ -122,6 +132,7 @@ Hooks: `useMethods`, `useTotpEnrollment`, `useEmailEnrollment`, `useWebAuthnEnro
 |--------|---------|---------|
 | `PreAuth.SigningKey` | — (required, ≥32 chars) | HMAC key for the pre-auth ticket; validated at startup |
 | `PreAuth.Ttl` | 5 min | Pre-auth ticket lifetime |
+| `PreAuth.VerifiedTtl` | 2 min | Verified-handoff token lifetime (the finalize proof) |
 | `Totp.Issuer` | `Omni2FA` | Name shown in authenticator apps |
 | `Email.Smtp.*` / `Email.BackgroundDelivery` | — / `true` | SMTP transport; codes sent on a background worker by default |
 | `WebAuthn.RelyingPartyId` / `Origins` | `localhost` / `http://localhost:5173` | Must match your real hostname (HTTPS off-localhost) |

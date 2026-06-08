@@ -15,11 +15,13 @@ namespace Omni2FA.Core.Services;
 public class RecoveryCodeService : IRecoveryCodeService {
     private readonly IRecoveryCodeStore _store;
     private readonly IOmni2FaAuditSink _audit;
+    private readonly IPreAuthTokenIssuer _preAuth;
     private readonly int _count;
 
-    public RecoveryCodeService(IRecoveryCodeStore store, IOmni2FaAuditSink audit, IOptions<Omni2FaOptions> options) {
+    public RecoveryCodeService(IRecoveryCodeStore store, IOmni2FaAuditSink audit, IPreAuthTokenIssuer preAuth, IOptions<Omni2FaOptions> options) {
         _store = store;
         _audit = audit;
+        _preAuth = preAuth;
         _count = options.Value.RecoveryCodes.Count;
     }
 
@@ -54,9 +56,13 @@ public class RecoveryCodeService : IRecoveryCodeService {
         await _store.SaveChangesAsync(cancellationToken).ConfigureAwait(false);
         await _audit.RecordAsync(new Omni2FaAuditEvent { Type = Omni2FaAuditEventType.RecoveryCodeUsed, UserId = userId }, cancellationToken).ConfigureAwait(false);
 
+        // Same verified-handoff token as method verify — recovery-code login isn't a special case for the host.
+        var handoff = _preAuth.IssueVerified(userId);
         return Result<VerifySuccessResponse>.Success(new VerifySuccessResponse {
             Verified = true,
             UserId = userId,
+            VerifiedToken = handoff.Token,
+            ExpiresAt = handoff.ExpiresAt,
         });
     }
 

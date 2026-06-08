@@ -31,8 +31,8 @@ public class AuthController : ApiBaseController {
     [HttpPost("finalize")]
     public async Task<IActionResult> Finalize(CancellationToken cancellationToken) {
         var header = Request.Headers.Authorization.ToString();
-        var preAuthToken = header.StartsWith("Bearer ", StringComparison.OrdinalIgnoreCase) ? header["Bearer ".Length..] : null;
-        var result = await _auth.FinalizeAfter2FaAsync(preAuthToken, cancellationToken);
+        var verifiedToken = header.StartsWith("Bearer ", StringComparison.OrdinalIgnoreCase) ? header["Bearer ".Length..] : null;
+        var result = await _auth.FinalizeAfter2FaAsync(verifiedToken, cancellationToken);
         return HandleResult(result);
     }
 }

@@ -150,6 +150,14 @@ internal sealed class PreAuthFilter : IEndpointFilter {
 
 **Trade-off:** `HttpContext.User` stays anonymous on `/challenge/*`. That's expected — these endpoints don't need a `ClaimsPrincipal`, only the userId, which goes into `HttpContext.Items`.
 
+**Finalize handoff:** `ValidateAndGetUserId` accepts only the *pre-auth* token (`purpose=2fa-pending`), so it proves the password step, not 2FA. To mint the session, the host validates the *verified-handoff* token returned by `challenge/verify` (`VerifySuccessResponse.verifiedToken`, `purpose=2fa-verified`):
+
+```csharp
+var userId = preAuth.ValidateVerified(verifiedToken);  // null unless 2FA actually passed
+```
+
+Both tokens share signing/issuer/audience and differ only by purpose, so neither can stand in for the other. The host needs no audit-event listener or cache to know the ceremony passed — the token is the signal, identical for code, passkey, and recovery-code logins.
+
 ---
 
 ## 5. Result → IResult — explicit extension, not middleware

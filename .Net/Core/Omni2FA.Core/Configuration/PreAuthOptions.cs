@@ -19,4 +19,7 @@ public class PreAuthOptions {
 
     /// <summary>How long the token is valid after issuance. Default 5 minutes.</summary>
     public TimeSpan Ttl { get; set; } = TimeSpan.FromMinutes(5);
+
+    /// <summary>How long the verified-handoff token (issued after a challenge passes) stays valid. Default 2 minutes.</summary>
+    public TimeSpan VerifiedTtl { get; set; } = TimeSpan.FromMinutes(2);
 }

@@ -16,8 +16,11 @@ public class JwtPreAuthTokenIssuer : IPreAuthTokenIssuer {
     /// <summary>Claim used to disambiguate Omni2FA pre-auth tokens from regular session tokens.</summary>
     public const string PurposeClaim = "omni2fa_purpose";
 
-    /// <summary>Value of <see cref="PurposeClaim"/> for pre-auth tokens.</summary>
+    /// <summary>Value of <see cref="PurposeClaim"/> for pre-auth (challenge-pending) tokens.</summary>
     public const string PurposeValue = "2fa-pending";
+
+    /// <summary>Value of <see cref="PurposeClaim"/> for verified-handoff tokens (challenge passed).</summary>
+    public const string PurposeVerifiedValue = "2fa-verified";
 
     private readonly PreAuthOptions _options;
     private readonly SigningCredentials _signingCredentials;
@@ -46,15 +49,23 @@ public class JwtPreAuthTokenIssuer : IPreAuthTokenIssuer {
         };
     }
 
-    public PreAuthTokenInfo Issue(string userId) {
+    public PreAuthTokenInfo Issue(string userId) => Mint(userId, PurposeValue, _options.Ttl);
+
+    public PreAuthTokenInfo IssueVerified(string userId) => Mint(userId, PurposeVerifiedValue, _options.VerifiedTtl);
+
+    public string? ValidateAndGetUserId(string token) => Validate(token, PurposeValue);
+
+    public string? ValidateVerified(string token) => Validate(token, PurposeVerifiedValue);
+
+    private PreAuthTokenInfo Mint(string userId, string purpose, TimeSpan ttl) {
         if (string.IsNullOrWhiteSpace(userId)) {
             throw new ArgumentException("userId must not be empty.", nameof(userId));
         }
         var now = DateTime.UtcNow;
-        var expires = now.Add(_options.Ttl);
+        var expires = now.Add(ttl);
         var claims = new[] {
             new Claim(JwtRegisteredClaimNames.Sub, userId),
-            new Claim(PurposeClaim, PurposeValue),
+            new Claim(PurposeClaim, purpose),
             new Claim(JwtRegisteredClaimNames.Jti, Guid.NewGuid().ToString()),
         };
         var token = new JwtSecurityToken(
@@ -68,14 +79,14 @@ public class JwtPreAuthTokenIssuer : IPreAuthTokenIssuer {
         return new PreAuthTokenInfo(encoded, expires);
     }
 
-    public string? ValidateAndGetUserId(string token) {
+    private string? Validate(string token, string requiredPurpose) {
         if (string.IsNullOrWhiteSpace(token)) {
             return null;
         }
         try {
             var principal = _handler.ValidateToken(token, _validationParameters, out _);
-            var purpose = principal.FindFirst(PurposeClaim)?.Value;
-            if (purpose != PurposeValue) {
+            // Both kinds share signature/issuer/audience — the purpose claim keeps them apart.
+            if (principal.FindFirst(PurposeClaim)?.Value != requiredPurpose) {
                 return null;
             }
             var sub = principal.FindFirst(JwtRegisteredClaimNames.Sub)?.Value;

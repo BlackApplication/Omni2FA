@@ -9,6 +9,7 @@ const initialContext: ChallengeContext = {
     methodId: null,
     methodType: null,
     userId: null,
+    verifiedToken: null,
     expiresAt: null,
     resendAvailableAt: null,
     optionsJson: null,
@@ -111,6 +112,7 @@ export function createChallengeMachine(client: IOmni2FaClient) {
                         target: 'verified',
                         actions: ({ context, event }) => {
                             context.userId = event.output.userId;
+                            context.verifiedToken = event.output.verifiedToken;
                             context.errorCode = null;
                             context.errorMessage = null;
                         },
@@ -140,6 +142,7 @@ export function createChallengeMachine(client: IOmni2FaClient) {
                         target: 'verified',
                         actions: ({ context, event }) => {
                             context.userId = event.output.userId;
+                            context.verifiedToken = event.output.verifiedToken;
                             context.errorCode = null;
                             context.errorMessage = null;
                         },
@@ -179,6 +182,7 @@ export function createChallengeMachine(client: IOmni2FaClient) {
                         target: 'verified',
                         actions: ({ context, event }) => {
                             context.userId = event.output.userId;
+                            context.verifiedToken = event.output.verifiedToken;
                             context.errorCode = null;
                             context.errorMessage = null;
                         },
@@ -218,6 +222,7 @@ function assignInitial({ context }: { context: ChallengeContext }) {
     context.methodId = null;
     context.methodType = null;
     context.userId = null;
+    context.verifiedToken = null;
     context.expiresAt = null;
     context.resendAvailableAt = null;
     context.optionsJson = null;

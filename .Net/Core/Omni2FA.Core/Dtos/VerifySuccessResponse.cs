@@ -1,13 +1,19 @@
 namespace Omni2FA.Core.Dtos;
 
 /// <summary>
-/// Returned by <c>POST /api/2fa/challenge/verify</c> on success. The host uses
-/// <see cref="UserId"/> to mint its own session JWT/cookie.
+/// Returned by <c>/challenge/verify</c> and <c>/challenge/recovery-code</c> on success. The frontend
+/// forwards <see cref="VerifiedToken"/> to the host's finalize endpoint to mint the session.
 /// </summary>
 public class VerifySuccessResponse {
     /// <summary>Always <c>true</c> on this response. Failures use <c>4xx</c> with an error envelope.</summary>
     public required bool Verified { get; init; }
 
-    /// <summary>The verified user's id, stringified.</summary>
+    /// <summary>Verified user's id. Informational only — the host derives the user from <see cref="VerifiedToken"/>, not this.</summary>
     public required string UserId { get; init; }
+
+    /// <summary>Proof the ceremony passed. The host validates it with <c>IPreAuthTokenIssuer.ValidateVerified</c> in finalize.</summary>
+    public required string VerifiedToken { get; init; }
+
+    /// <summary>When <see cref="VerifiedToken"/> expires (UTC).</summary>
+    public required DateTime ExpiresAt { get; init; }
 }

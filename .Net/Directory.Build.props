@@ -17,7 +17,7 @@
   </PropertyGroup>
 
   <PropertyGroup Label="Package">
-    <Version>0.6.1</Version>
+    <Version>0.7.0</Version>
     <Authors>BlackApplication</Authors>
     <Company>BlackApplication</Company>
     <Product>Omni2FA</Product>

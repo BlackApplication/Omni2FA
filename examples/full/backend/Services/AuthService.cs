@@ -80,22 +80,22 @@ public class AuthService : IAuthService {
 
         return Result<AuthOutcome>.Success(new AuthOutcome {
             Kind = AuthOutcomeKind.Challenge,
-            Challenge = new TwoFactorChallengeResponse {
+            Challenge = new PreAuthChallengeResponse {
                 PreAuthToken = preAuth.Token,
-                ExpiresAt = preAuth.ExpiresAt,
                 AvailableMethods = availableMethods,
+                ExpiresAt = preAuth.ExpiresAt,
             },
         });
     }
 
-    public async Task<Result<LoginResponse>> FinalizeAfter2FaAsync(string? preAuthToken, CancellationToken cancellationToken = default) {
-        // Derive the user from the validated pre-auth token — never trust a user id from the request body.
-        if (string.IsNullOrWhiteSpace(preAuthToken)) {
-            return Result<LoginResponse>.Failure("INVALID_PREAUTH", "Missing pre-auth token.");
+    public async Task<Result<LoginResponse>> FinalizeAfter2FaAsync(string? verifiedToken, CancellationToken cancellationToken = default) {
+        // Derive the user from the verified-handoff token — proof 2FA actually passed, not just the password.
+        if (string.IsNullOrWhiteSpace(verifiedToken)) {
+            return Result<LoginResponse>.Failure("INVALID_PREAUTH", "Missing verified token.");
         }
-        var userIdString = _preAuthIssuer.ValidateAndGetUserId(preAuthToken);
+        var userIdString = _preAuthIssuer.ValidateVerified(verifiedToken);
         if (userIdString is null || !Guid.TryParse(userIdString, out var userId)) {
-            return Result<LoginResponse>.Failure("INVALID_PREAUTH", "Pre-auth token is invalid or expired.");
+            return Result<LoginResponse>.Failure("INVALID_PREAUTH", "Verified token is invalid or expired.");
         }
         var user = await _db.Users.FirstOrDefaultAsync(u => u.Id == userId, cancellationToken).ConfigureAwait(false);
         if (user is null) {

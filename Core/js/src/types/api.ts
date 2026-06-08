@@ -394,11 +394,20 @@ export interface components {
             /** @description Always `true` on this response. Failures use `4xx` with `ErrorResponse`. */
             verified: boolean;
             /**
-             * @description Verified user's identifier, stringified. The host application casts
-             *     this to its native userId type (Guid/long/int/email) and uses it to
-             *     mint its final session JWT/cookie. Omni2FA does not issue session tokens.
+             * @description Verified user's id, stringified. Informational only — the host derives the user
+             *     from `verifiedToken`, not this (the client could otherwise claim any id).
              */
             userId: string;
+            /**
+             * @description Verified-handoff token — proof the ceremony passed. The frontend forwards it to the
+             *     host's finalize endpoint, which validates it server-side and mints the session.
+             */
+            verifiedToken: string;
+            /**
+             * Format: date-time
+             * @description When `verifiedToken` expires (UTC).
+             */
+            expiresAt: string;
         };
         EmailEnrollStartRequest: {
             /**

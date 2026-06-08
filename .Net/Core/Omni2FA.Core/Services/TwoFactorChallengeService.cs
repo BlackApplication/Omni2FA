@@ -21,6 +21,7 @@ public class TwoFactorChallengeService : ITwoFactorChallengeService {
     private readonly IEmailOtpService _emailOtp;
     private readonly IWebAuthnCeremonyService _webAuthn;
     private readonly IOmni2FaAuditSink _audit;
+    private readonly IPreAuthTokenIssuer _preAuth;
     private readonly TimeSpan _webAuthnTtl;
 
     public TwoFactorChallengeService(
@@ -31,6 +32,7 @@ public class TwoFactorChallengeService : ITwoFactorChallengeService {
         IEmailOtpService emailOtp,
         IWebAuthnCeremonyService webAuthn,
         IOmni2FaAuditSink audit,
+        IPreAuthTokenIssuer preAuth,
         IOptions<Omni2FaOptions> options) {
         _methods = methods;
         _challenges = challenges;
@@ -39,6 +41,7 @@ public class TwoFactorChallengeService : ITwoFactorChallengeService {
         _emailOtp = emailOtp;
         _webAuthn = webAuthn;
         _audit = audit;
+        _preAuth = preAuth;
         _webAuthnTtl = options.Value.AspNetCore.EnrollmentTtl;
     }
 
@@ -227,10 +230,13 @@ public class TwoFactorChallengeService : ITwoFactorChallengeService {
         }, cancellationToken);
     }
 
-    private static Result<VerifySuccessResponse> Success(string userId) {
+    private Result<VerifySuccessResponse> Success(string userId) {
+        var handoff = _preAuth.IssueVerified(userId);
         return Result<VerifySuccessResponse>.Success(new VerifySuccessResponse {
             Verified = true,
             UserId = userId,
+            VerifiedToken = handoff.Token,
+            ExpiresAt = handoff.ExpiresAt,
         });
     }
 

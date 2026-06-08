@@ -75,7 +75,7 @@ Open `http://localhost:5173`.
 
 ### Manage
 
-11. Back on `/profile` — verified, host session JWT issued by `/auth/finalize`.
+11. Back on `/profile` — verified, host session JWT issued by `/auth/finalize` (which validates the verified-handoff token from the verify step).
 12. Remove a method via the trash-can icon. With no methods left, recovery codes are wiped and the next sign in skips the 2FA step.
 
 > **Who owns what:** the host verifies the password and issues the final session JWT; Omni2FA issues

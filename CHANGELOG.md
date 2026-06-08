@@ -2,6 +2,21 @@
 
 All notable changes to Omni2FA will be documented in this file. Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); versions follow [SemVer](https://semver.org/).
 
+## [0.7.0] — 2026-06-08
+
+Compatibility release from live-integration feedback: gives hosts a clean "2FA actually passed" signal
+instead of forcing them to reconstruct one from audit events. OpenAPI moves to `0.7.0`.
+
+### Added
+- **Verified-handoff token** — `challenge/verify` and `challenge/recovery-code` now return a short-lived `verifiedToken` (`purpose=2fa-verified`) alongside `userId`. The frontend forwards it to the host's finalize endpoint, which calls the new `IPreAuthTokenIssuer.ValidateVerified(token)` to recover the trusted user id and mint the session. New `IssueVerified` / `ValidateVerified` on `IPreAuthTokenIssuer`; `PreAuth.VerifiedTtl` option (default 2 min). `VerifySuccessResponse` gains `verifiedToken` + `expiresAt`; surfaced in the TS challenge machine as `context.verifiedToken`.
+
+### Fixed
+- **2FA bypass in the host finalize pattern** — finalize must validate the *verified-handoff* token, not the pre-auth token. The pre-auth token is minted right after the password step, so re-validating it (as the example previously did) let anyone who passed the password — but not 2FA — mint a session. The example now validates `verifiedToken`.
+- **Recovery-code "verified" signal** — a recovery-code login previously emitted only the `RecoveryCodeUsed` audit event, so a host inferring success from `LoginVerifySucceeded` silently rejected it. Both paths now return the same `verifiedToken`, so recovery is no longer a special case. This also removes the per-user race in audit-based gates: the token is bound to the ceremony, not the user.
+
+### Changed
+- Docs (`README`, `FLOWS`, `ASPNETCORE`) and the `examples/full` host updated to the verified-handoff finalize flow.
+
 ## [0.6.1] — 2026-06-08
 
 Patch: fixes and a refactor from a live end-to-end run + multi-agent code review. No contract change —

@@ -5,6 +5,7 @@ This document describes the user-facing flows Omni2FA orchestrates. The OpenAPI 
 ## Glossary
 
 - **Pre-auth token** — short-lived (~3-5 min) JWT issued after password verification but before 2FA verification. Carries `userId` + `purpose=2fa-pending`. The frontend includes it in every step of the 2FA ceremony so the server knows whose flow this is without leaking identity to the URL/storage.
+- **Verified-handoff token** — short-lived (~2 min) JWT returned by `challenge/verify` and `challenge/recovery-code` on success. Carries `userId` + `purpose=2fa-verified`. The frontend forwards it to the host's finalize endpoint, which validates it (`ValidateVerified`) to mint the session. This is the proof 2FA actually passed — the host never infers success from audit events or trusts the client. Same token for code, passkey, and recovery-code.
 - **Challenge** — server-side state for a 2FA ceremony in progress. Stored in `Omni2FaChallenges` table: hashed OTP for email, challenge bytes for WebAuthn, expiry, consumed flag. Consumed on first successful verification.
 - **Method** — an enrolled 2FA factor on a user. Rows in `Omni2FaMethods`: type (Totp / Email / WebAuthn), method-specific fields, optional human-readable name.
 - **Recovery code** — single-use code that substitutes for any 2FA method during login. Generated on first method enrollment, hashed at rest, shown to the user **once**.
@@ -40,7 +41,9 @@ sequenceDiagram
         U->>FE: enter code / produce assertion
         FE->>O: POST /api/2fa/challenge/verify { preAuthToken, methodId, code|assertion }
         O->>O: validate, consume challenge, mark method.lastUsedAt
-        O-->>BE: signal "user X verified"
+        O-->>FE: 200 VerifySuccessResponse { verifiedToken }
+        FE->>BE: POST /auth/finalize (Bearer verifiedToken)
+        BE->>BE: ValidateVerified(verifiedToken) → userId
         BE->>FE: 200 LoginResponse (final session JWT)
     end
 ```
@@ -59,7 +62,7 @@ At any point on the verify step the user can click "use recovery code". Frontend
 POST /api/2fa/challenge/recovery-code { preAuthToken, recoveryCode }
 ```
 
-On success the recovery code is marked used (one-time) and the user gets a final session JWT.
+On success the recovery code is marked used (one-time) and the response carries the same `verifiedToken` as a normal verify — so the host's finalize path is identical, recovery or not.
 
 ---
 
@@ -194,6 +197,7 @@ Production SMTP without proper authentication records → emails land in spam �
 | Verify password | ✅ | — |
 | Issue final session JWT | ✅ | — |
 | Issue pre-auth token | — | ✅ |
+| Issue / validate verified-handoff token | — (calls `ValidateVerified` in finalize) | ✅ |
 | Store `User` table | ✅ | — |
 | Store `Omni2FaMethods`, `Omni2FaChallenges`, `Omni2FaRecoveryCodes` | ✅ (your DbContext, via `ApplyOmni2FaConfiguration()`) | — (schema + adapter) |
 | Generate / validate TOTP, OTP, WebAuthn | — | ✅ |
