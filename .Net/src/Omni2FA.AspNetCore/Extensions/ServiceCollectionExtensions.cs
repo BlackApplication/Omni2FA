@@ -6,6 +6,7 @@ using Microsoft.Extensions.Options;
 using Omni2FA.AspNetCore.Audit;
 using Omni2FA.AspNetCore.Email;
 using Omni2FA.AspNetCore.Filters;
+using Omni2FA.AspNetCore.Internal;
 using Omni2FA.AspNetCore.Services;
 using Omni2FA.AspNetCore.Services.Interfaces;
 using Omni2FA.Core.Configuration;
@@ -23,11 +24,14 @@ public static class ServiceCollectionExtensions {
     /// must be registered separately.
     /// </summary>
     public static IServiceCollection AddOmni2Fa(this IServiceCollection services, Action<Omni2FaOptions>? configure = null) {
+        var options = services.AddOptions<Omni2FaOptions>();
         if (configure is not null) {
-            services.Configure(configure);
-        } else {
-            services.AddOptions<Omni2FaOptions>();
+            options.Configure(configure);
         }
+        // Fail fast at startup on the misconfiguration that would otherwise blow up mid-login.
+        options
+            .Validate(o => o.PreAuth.SigningKey.Length >= 32, "Omni2Fa:PreAuth:SigningKey must be at least 32 characters (HMAC-SHA256 signing key).")
+            .ValidateOnStart();
 
         services.AddHttpContextAccessor();
 
@@ -40,10 +44,16 @@ public static class ServiceCollectionExtensions {
         services.AddScoped<ITwoFactorChallengeService, TwoFactorChallengeService>();
         services.AddScoped<IEmailEnrollmentService, EmailEnrollmentService>();
         services.AddScoped<IRecoveryCodeService, RecoveryCodeService>();
+        services.AddScoped<IEnrollmentFinalizer, EnrollmentFinalizer>();
 
         // Audit is opt-in: default writes structured ILogger records; a host sink replaces it.
         services.TryAddSingleton<IOmni2FaAuditSink, LoggerAuditSink>();
+        // The shared rate-limit window lives in this singleton; the filter resolves it per request.
+        services.AddSingleton<Omni2FaRateLimiter>();
         services.AddSingleton<RateLimitFilter>();
+
+        // Background maintenance: prune consumed/expired challenge rows.
+        services.AddHostedService<ChallengePurgeBackgroundService>();
 
         // Email OTP: transport and copy are pluggable (TryAdd → host registrations win); the OTP
         // primitive is scoped so it can consume a host-registered scoped IEmailSender if present.

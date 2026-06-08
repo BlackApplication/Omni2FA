@@ -1,5 +1,4 @@
 using Microsoft.Extensions.Options;
-using Omni2FA.Core.Audit;
 using Omni2FA.Core.Configuration;
 using Omni2FA.Core.Dtos;
 using Omni2FA.Core.Entities;
@@ -16,8 +15,7 @@ public class TotpEnrollmentService : ITotpEnrollmentService {
     private readonly ITwoFactorChallengeStore _challenges;
     private readonly ITotpService _totp;
     private readonly ISecretProtector _protector;
-    private readonly IRecoveryCodeService _recovery;
-    private readonly IOmni2FaAuditSink _audit;
+    private readonly IEnrollmentFinalizer _finalizer;
     private readonly TimeSpan _enrollmentTtl;
 
     public TotpEnrollmentService(
@@ -25,15 +23,13 @@ public class TotpEnrollmentService : ITotpEnrollmentService {
         ITwoFactorChallengeStore challenges,
         ITotpService totp,
         ISecretProtector protector,
-        IRecoveryCodeService recovery,
-        IOmni2FaAuditSink audit,
+        IEnrollmentFinalizer finalizer,
         IOptions<Omni2FaOptions> options) {
         _methods = methods;
         _challenges = challenges;
         _totp = totp;
         _protector = protector;
-        _recovery = recovery;
-        _audit = audit;
+        _finalizer = finalizer;
         _enrollmentTtl = options.Value.AspNetCore.EnrollmentTtl;
     }
 
@@ -92,17 +88,7 @@ public class TotpEnrollmentService : ITotpEnrollmentService {
         await _challenges.MarkConsumedAsync(challenge, cancellationToken).ConfigureAwait(false);
         await _methods.SaveChangesAsync(cancellationToken).ConfigureAwait(false);
 
-        var recoveryCodes = await _recovery.GenerateIfNoneAsync(userId, cancellationToken).ConfigureAwait(false);
-        await _audit.RecordAsync(new Omni2FaAuditEvent {
-            Type = Omni2FaAuditEventType.MethodEnrolled,
-            UserId = userId,
-            MethodType = TwoFactorMethodType.Totp,
-            MethodId = method.Id,
-        }, cancellationToken).ConfigureAwait(false);
-
-        return Result<MethodCreatedResponse>.Success(new MethodCreatedResponse {
-            MethodId = method.Id,
-            RecoveryCodes = recoveryCodes,
-        });
+        var response = await _finalizer.FinalizeAsync(userId, method, cancellationToken).ConfigureAwait(false);
+        return Result<MethodCreatedResponse>.Success(response);
     }
 }

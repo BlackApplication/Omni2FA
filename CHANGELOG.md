@@ -2,6 +2,20 @@
 
 All notable changes to Omni2FA will be documented in this file. Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); versions follow [SemVer](https://semver.org/).
 
+## [0.6.1] — 2026-06-08
+
+Patch: fixes and a refactor from a live end-to-end run + multi-agent code review. No contract change —
+OpenAPI stays at `0.6.0`.
+
+### Fixed
+- **Enum wire format** — `TwoFactorMethodType` now serializes as a string (`"Totp"`) via an attribute on the enum, matching the OpenAPI contract and the TS types regardless of host JSON settings. Previously emitted as an integer, silently breaking every `type === 'Totp'` check on the frontend.
+- **Rate limiting** — the shared window now lives in a singleton (`Omni2FaRateLimiter`) resolved per request, so all sensitive endpoints actually share one IP partition. Previously the limiter never engaged.
+- **Example 2FA bypass** — the host example's `POST /auth/finalize` now derives the user from the validated pre-auth token instead of trusting a `userId` in the request body (which let anyone mint a session for any user).
+- Validate `Omni2Fa:PreAuth:SigningKey` length at startup (`ValidateOnStart`); background `ChallengePurgeBackgroundService` prunes expired challenges; unique index + uncapped length on WebAuthn credential columns; token routing classifies endpoints by path under the mount, not a URL substring; example enables forwarded headers for correct client IP behind a proxy.
+
+### Refactor
+- Extracted the shared enrollment tail (first-method recovery codes + `MethodEnrolled` audit) into `IEnrollmentFinalizer`, removing the duplication across the three enrollment services.
+
 ## [0.6.0] — 2026-06-08
 
 Production-hardening release: recovery codes (v0.4 scope) plus the v0.6 stabilization items, so

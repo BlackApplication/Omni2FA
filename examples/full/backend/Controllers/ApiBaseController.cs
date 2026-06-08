@@ -24,7 +24,7 @@ public abstract class ApiBaseController : ControllerBase {
     private static int StatusFromCode(string? code) {
         return code switch {
             "INVALID_INPUT" => StatusCodes.Status400BadRequest,
-            "INVALID_CREDENTIALS" => StatusCodes.Status401Unauthorized,
+            "INVALID_CREDENTIALS" or "INVALID_PREAUTH" => StatusCodes.Status401Unauthorized,
             "EMAIL_TAKEN" => StatusCodes.Status409Conflict,
             "USER_NOT_FOUND" => StatusCodes.Status404NotFound,
             _ => StatusCodes.Status500InternalServerError,

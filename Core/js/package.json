@@ -1,6 +1,6 @@
 {
   "name": "@omni2fa/core",
-  "version": "0.6.0",
+  "version": "0.6.1",
   "description": "Omni2FA — framework-agnostic TypeScript core. State machines, WebAuthn ceremony, HTTP client, timers, validation. No React/Vue/Angular dependencies. Consumed by @omni2fa/react and future Vue/Angular/Svelte adapters.",
   "keywords": [
     "2fa",

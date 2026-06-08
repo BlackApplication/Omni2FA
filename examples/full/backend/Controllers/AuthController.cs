@@ -29,8 +29,10 @@ public class AuthController : ApiBaseController {
 
     [AllowAnonymous]
     [HttpPost("finalize")]
-    public async Task<IActionResult> Finalize([FromBody] FinalizeRequest request, CancellationToken cancellationToken) {
-        var result = await _auth.FinalizeAfter2FaAsync(request.UserId, cancellationToken);
+    public async Task<IActionResult> Finalize(CancellationToken cancellationToken) {
+        var header = Request.Headers.Authorization.ToString();
+        var preAuthToken = header.StartsWith("Bearer ", StringComparison.OrdinalIgnoreCase) ? header["Bearer ".Length..] : null;
+        var result = await _auth.FinalizeAfter2FaAsync(preAuthToken, cancellationToken);
         return HandleResult(result);
     }
 }

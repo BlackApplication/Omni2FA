@@ -30,12 +30,18 @@ public class TwoFactorMethodConfiguration : IEntityTypeConfiguration<TwoFactorMe
         builder.Property(m => m.TotpSecret).HasMaxLength(512);
         builder.Property(m => m.EmailAddress).HasMaxLength(256);
         builder.Property(m => m.WebAuthnCredentialId).HasMaxLength(256);
-        builder.Property(m => m.WebAuthnPublicKey).HasMaxLength(512);
+        // No length cap — COSE public keys for RSA authenticators can exceed 512 bytes.
 
         builder.HasIndex(m => m.UserId)
             .HasDatabaseName($"IX_{_options.MethodsTableName}_UserId");
 
         builder.HasIndex(m => new { m.UserId, m.Type })
             .HasDatabaseName($"IX_{_options.MethodsTableName}_UserId_Type");
+
+        // WebAuthn credential ids are globally unique. The column is nullable (TOTP/Email rows have
+        // none); EF filters the unique index to non-null values on providers that need it.
+        builder.HasIndex(m => m.WebAuthnCredentialId)
+            .IsUnique()
+            .HasDatabaseName($"IX_{_options.MethodsTableName}_WebAuthnCredentialId");
     }
 }

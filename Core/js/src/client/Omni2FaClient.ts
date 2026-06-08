@@ -30,6 +30,8 @@ import type { Omni2FaClientConfig } from './Omni2FaClientConfig';
 
 const DEFAULT_PREAUTH_KEY = 'omni2fa:preauth';
 const DEFAULT_SESSION_KEY = 'omni2fa:session';
+// Only used to resolve a relative baseUrl/request URL so we can read its pathname; the origin is irrelevant.
+const FALLBACK_ORIGIN = 'http://omni2fa.local';
 
 type FetchClient = ReturnType<typeof createClient<paths>>;
 
@@ -37,12 +39,15 @@ export class Omni2FaClient implements IOmni2FaClient {
     private readonly storage: IStorage;
     private readonly preAuthKey: string;
     private readonly sessionKey: string;
+    private readonly basePath: string;
     private readonly inner: FetchClient;
 
     constructor(config: Omni2FaClientConfig) {
         this.storage = config.storage ?? new MemoryStorage();
         this.preAuthKey = config.preAuthStorageKey ?? DEFAULT_PREAUTH_KEY;
         this.sessionKey = config.sessionStorageKey ?? DEFAULT_SESSION_KEY;
+        // Mount path of the API, e.g. "/api/2fa" — used to classify endpoints by their path under it.
+        this.basePath = new URL(config.baseUrl, FALLBACK_ORIGIN).pathname.replace(/\/$/, '');
         this.inner = createClient<paths>({
             baseUrl: config.baseUrl,
             fetch: config.fetch ?? globalThis.fetch.bind(globalThis),
@@ -55,14 +60,20 @@ export class Omni2FaClient implements IOmni2FaClient {
                     return request;
                 }
                 // Pre-auth token guards the 2FA ceremony; everything else uses the host session token.
-                const isPreAuthEndpoint = request.url.includes('/challenge/');
-                const token = isPreAuthEndpoint ? this.getPreAuthToken() : this.getSessionToken();
+                const token = this.isPreAuthEndpoint(request.url) ? this.getPreAuthToken() : this.getSessionToken();
                 if (token) {
                     request.headers.set('Authorization', `Bearer ${token}`);
                 }
                 return request;
             },
         });
+    }
+
+    /** Pre-auth endpoints are exactly the ones mounted under <c>{basePath}/challenge/</c>. */
+    private isPreAuthEndpoint(url: string): boolean {
+        const path = new URL(url, FALLBACK_ORIGIN).pathname;
+        const relative = path.startsWith(this.basePath) ? path.slice(this.basePath.length) : path;
+        return relative.startsWith('/challenge/');
     }
 
     setPreAuthToken(token: string | null): void {

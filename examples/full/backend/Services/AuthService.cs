@@ -88,7 +88,15 @@ public class AuthService : IAuthService {
         });
     }
 
-    public async Task<Result<LoginResponse>> FinalizeAfter2FaAsync(Guid userId, CancellationToken cancellationToken = default) {
+    public async Task<Result<LoginResponse>> FinalizeAfter2FaAsync(string? preAuthToken, CancellationToken cancellationToken = default) {
+        // Derive the user from the validated pre-auth token — never trust a user id from the request body.
+        if (string.IsNullOrWhiteSpace(preAuthToken)) {
+            return Result<LoginResponse>.Failure("INVALID_PREAUTH", "Missing pre-auth token.");
+        }
+        var userIdString = _preAuthIssuer.ValidateAndGetUserId(preAuthToken);
+        if (userIdString is null || !Guid.TryParse(userIdString, out var userId)) {
+            return Result<LoginResponse>.Failure("INVALID_PREAUTH", "Pre-auth token is invalid or expired.");
+        }
         var user = await _db.Users.FirstOrDefaultAsync(u => u.Id == userId, cancellationToken).ConfigureAwait(false);
         if (user is null) {
             return Result<LoginResponse>.Failure("USER_NOT_FOUND", "User no longer exists.");

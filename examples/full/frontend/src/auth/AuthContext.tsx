@@ -1,5 +1,5 @@
 import { createContext, useCallback, useEffect, useMemo, useState, type ReactNode } from 'react';
-import { authClient, type LoginResponse } from '../api/authClient';
+import type { LoginResponse } from '../api/authClient';
 import { omni } from '../omni2fa';
 
 interface AuthState {
@@ -48,7 +48,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         [session],
     );
 
-    void authClient;
     const value = useMemo<AuthState>(() => ({ session, setSession, logout, authFetch }), [session, setSession, logout, authFetch]);
 
     return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

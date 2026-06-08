@@ -28,7 +28,8 @@ export function TwoFactorChallengePage() {
         let cancelled = false;
         (async () => {
             try {
-                const session = await authClient.finalize(context.userId!);
+                // The pre-auth token (still valid post-verify) is the proof the server re-validates.
+                const session = await authClient.finalize(omni.client.getPreAuthToken());
                 if (cancelled) return;
                 setSession(session);
                 omni.client.setPreAuthToken(null);

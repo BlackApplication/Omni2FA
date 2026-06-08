@@ -4,6 +4,7 @@ using Example.Backend.Configuration;
 using Example.Backend.Services;
 using Example.Backend.Services.Interfaces;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
+using Microsoft.AspNetCore.HttpOverrides;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
 using Omni2FA.AspNetCore.EntityFrameworkCore.Extensions;
@@ -58,6 +59,12 @@ if (app.Environment.IsDevelopment()) {
     app.UseSwagger();
     app.UseSwaggerUI();
 }
+
+// Behind a reverse proxy / load balancer, enable forwarded headers so Omni2FA's IP-based rate limit
+// sees the real client IP (not the proxy's). Configure KnownProxies/KnownNetworks for production.
+app.UseForwardedHeaders(new ForwardedHeadersOptions {
+    ForwardedHeaders = ForwardedHeaders.XForwardedFor | ForwardedHeaders.XForwardedProto,
+});
 
 app.UseCors();
 app.UseAuthentication();

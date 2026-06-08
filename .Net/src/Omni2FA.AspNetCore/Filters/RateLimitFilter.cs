@@ -2,9 +2,8 @@ using System.Globalization;
 using System.Threading.RateLimiting;
 using Microsoft.AspNetCore.Http;
 using Microsoft.Extensions.DependencyInjection;
-using Microsoft.Extensions.Options;
+using Omni2FA.AspNetCore.Internal;
 using Omni2FA.Core.Audit;
-using Omni2FA.Core.Configuration;
 using Omni2FA.Core.Dtos;
 using Omni2FA.Core.Errors;
 using Omni2FA.Core.Services.Interfaces;
@@ -12,33 +11,24 @@ using Omni2FA.Core.Services.Interfaces;
 namespace Omni2FA.AspNetCore.Filters;
 
 /// <summary>
-/// IP-partitioned fixed-window rate limit for sensitive endpoints. Self-contained (no host
-/// <c>UseRateLimiter</c> needed); on rejection emits the standard <c>ErrorResponse</c> envelope with
-/// <c>TOO_MANY_ATTEMPTS</c> and a <c>Retry-After</c> header, and raises a <c>RateLimitExceeded</c> audit event.
+/// IP-partitioned rate limit for sensitive endpoints. Self-contained (no host <c>UseRateLimiter</c>);
+/// on rejection emits the standard <c>ErrorResponse</c> with <c>TOO_MANY_ATTEMPTS</c> + a <c>Retry-After</c>
+/// header and raises a <c>RateLimitExceeded</c> audit event. The shared window lives in the singleton
+/// <see cref="Omni2FaRateLimiter"/>, resolved per request — so this filter is instantiation-agnostic.
+///
+/// Behind a reverse proxy / load balancer, configure ASP.NET forwarded-headers so
+/// <c>RemoteIpAddress</c> reflects the real client; otherwise all clients share one partition.
 /// </summary>
-internal sealed class RateLimitFilter : IEndpointFilter, IDisposable {
-    private readonly PartitionedRateLimiter<string> _limiter;
-    private readonly RateLimitOptions _options;
-
-    public RateLimitFilter(IOptions<Omni2FaOptions> options) {
-        _options = options.Value.RateLimit;
-        _limiter = PartitionedRateLimiter.Create<string, string>(key =>
-            RateLimitPartition.GetFixedWindowLimiter(key, _ => new FixedWindowRateLimiterOptions {
-                PermitLimit = _options.PermitLimit,
-                Window = _options.Window,
-                QueueLimit = 0,
-                AutoReplenishment = true,
-            }));
-    }
-
+internal sealed class RateLimitFilter : IEndpointFilter {
     public async ValueTask<object?> InvokeAsync(EndpointFilterInvocationContext context, EndpointFilterDelegate next) {
-        if (!_options.Enabled) {
+        var http = context.HttpContext;
+        var limiter = http.RequestServices.GetRequiredService<Omni2FaRateLimiter>();
+        if (!limiter.Enabled) {
             return await next(context).ConfigureAwait(false);
         }
 
-        var http = context.HttpContext;
         var partitionKey = http.Connection.RemoteIpAddress?.ToString() ?? "unknown";
-        using var lease = _limiter.AttemptAcquire(partitionKey);
+        using var lease = limiter.Acquire(partitionKey);
         if (lease.IsAcquired) {
             return await next(context).ConfigureAwait(false);
         }
@@ -52,9 +42,5 @@ internal sealed class RateLimitFilter : IEndpointFilter, IDisposable {
         return Results.Json(
             new ErrorResponse { Code = Omni2FaErrorCodes.TooManyAttempts, Message = "Too many attempts. Please wait and try again." },
             statusCode: StatusCodes.Status429TooManyRequests);
-    }
-
-    public void Dispose() {
-        _limiter.Dispose();
     }
 }

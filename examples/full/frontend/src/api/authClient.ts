@@ -28,7 +28,8 @@ async function postJson<T>(path: string, body: unknown, sessionToken?: string | 
 export const authClient = {
     register: (email: string, password: string) => postJson<LoginResponse>('/auth/register', { email, password }),
     login: (email: string, password: string) => postJson<AuthOutcome>('/auth/login', { email, password }),
-    finalize: (userId: string) => postJson<LoginResponse>('/auth/finalize', { userId }),
+    // The server derives the user from the validated pre-auth token — we send it as the bearer, no body.
+    finalize: (preAuthToken: string | null) => postJson<LoginResponse>('/auth/finalize', {}, preAuthToken),
     me: async (sessionToken: string) => {
         const res = await fetch('/user/me', { headers: { Authorization: `Bearer ${sessionToken}` } });
         if (!res.ok) throw new Error('unauthorized');

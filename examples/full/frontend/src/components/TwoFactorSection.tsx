@@ -61,7 +61,7 @@ export function TwoFactorSection() {
                                 <ListItem
                                     key={m.id}
                                     secondaryAction={
-                                        <IconButton edge="end" onClick={() => remove(m.id)} aria-label="Remove method">
+                                        <IconButton edge="end" onClick={() => remove(m.id)} disabled={status === 'removing'} aria-label="Remove method">
                                             <DeleteOutlineIcon />
                                         </IconButton>
                                     }

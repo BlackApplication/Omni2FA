@@ -1,4 +1,3 @@
-using Omni2FA.Core.Audit;
 using Omni2FA.Core.Dtos;
 using Omni2FA.Core.Entities;
 using Omni2FA.Core.Enums;
@@ -14,20 +13,17 @@ public class EmailEnrollmentService : IEmailEnrollmentService {
     private readonly ITwoFactorMethodStore _methods;
     private readonly ITwoFactorChallengeStore _challenges;
     private readonly IEmailOtpService _emailOtp;
-    private readonly IRecoveryCodeService _recovery;
-    private readonly IOmni2FaAuditSink _audit;
+    private readonly IEnrollmentFinalizer _finalizer;
 
     public EmailEnrollmentService(
         ITwoFactorMethodStore methods,
         ITwoFactorChallengeStore challenges,
         IEmailOtpService emailOtp,
-        IRecoveryCodeService recovery,
-        IOmni2FaAuditSink audit) {
+        IEnrollmentFinalizer finalizer) {
         _methods = methods;
         _challenges = challenges;
         _emailOtp = emailOtp;
-        _recovery = recovery;
-        _audit = audit;
+        _finalizer = finalizer;
     }
 
     public async Task<Result<EmailEnrollStartResponse>> StartAsync(string userId, EmailEnrollStartRequest request, CancellationToken cancellationToken = default) {
@@ -79,18 +75,8 @@ public class EmailEnrollmentService : IEmailEnrollmentService {
         await _challenges.MarkConsumedAsync(challenge, cancellationToken).ConfigureAwait(false);
         await _methods.SaveChangesAsync(cancellationToken).ConfigureAwait(false);
 
-        var recoveryCodes = await _recovery.GenerateIfNoneAsync(userId, cancellationToken).ConfigureAwait(false);
-        await _audit.RecordAsync(new Omni2FaAuditEvent {
-            Type = Omni2FaAuditEventType.MethodEnrolled,
-            UserId = userId,
-            MethodType = TwoFactorMethodType.Email,
-            MethodId = method.Id,
-        }, cancellationToken).ConfigureAwait(false);
-
-        return Result<MethodCreatedResponse>.Success(new MethodCreatedResponse {
-            MethodId = method.Id,
-            RecoveryCodes = recoveryCodes,
-        });
+        var response = await _finalizer.FinalizeAsync(userId, method, cancellationToken).ConfigureAwait(false);
+        return Result<MethodCreatedResponse>.Success(response);
     }
 
     public async Task<Result<EmailEnrollStartResponse>> ResendAsync(string userId, EmailEnrollResendRequest request, CancellationToken cancellationToken = default) {

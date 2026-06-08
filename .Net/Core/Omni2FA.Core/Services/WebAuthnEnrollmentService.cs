@@ -1,6 +1,5 @@
 using System.Text;
 using Microsoft.Extensions.Options;
-using Omni2FA.Core.Audit;
 using Omni2FA.Core.Configuration;
 using Omni2FA.Core.Dtos;
 using Omni2FA.Core.Entities;
@@ -18,8 +17,7 @@ public class WebAuthnEnrollmentService : IWebAuthnEnrollmentService {
     private readonly ITwoFactorMethodStore _methods;
     private readonly ITwoFactorChallengeStore _challenges;
     private readonly IWebAuthnCeremonyService _ceremony;
-    private readonly IRecoveryCodeService _recovery;
-    private readonly IOmni2FaAuditSink _audit;
+    private readonly IEnrollmentFinalizer _finalizer;
     private readonly int _maxCredentials;
     private readonly TimeSpan _enrollmentTtl;
 
@@ -27,14 +25,12 @@ public class WebAuthnEnrollmentService : IWebAuthnEnrollmentService {
         ITwoFactorMethodStore methods,
         ITwoFactorChallengeStore challenges,
         IWebAuthnCeremonyService ceremony,
-        IRecoveryCodeService recovery,
-        IOmni2FaAuditSink audit,
+        IEnrollmentFinalizer finalizer,
         IOptions<Omni2FaOptions> options) {
         _methods = methods;
         _challenges = challenges;
         _ceremony = ceremony;
-        _recovery = recovery;
-        _audit = audit;
+        _finalizer = finalizer;
         _maxCredentials = options.Value.WebAuthn.MaxCredentialsPerUser;
         _enrollmentTtl = options.Value.AspNetCore.EnrollmentTtl;
     }
@@ -105,18 +101,8 @@ public class WebAuthnEnrollmentService : IWebAuthnEnrollmentService {
         await _challenges.MarkConsumedAsync(challenge, cancellationToken).ConfigureAwait(false);
         await _methods.SaveChangesAsync(cancellationToken).ConfigureAwait(false);
 
-        var recoveryCodes = await _recovery.GenerateIfNoneAsync(userId, cancellationToken).ConfigureAwait(false);
-        await _audit.RecordAsync(new Omni2FaAuditEvent {
-            Type = Omni2FaAuditEventType.MethodEnrolled,
-            UserId = userId,
-            MethodType = TwoFactorMethodType.WebAuthn,
-            MethodId = method.Id,
-        }, cancellationToken).ConfigureAwait(false);
-
-        return Result<MethodCreatedResponse>.Success(new MethodCreatedResponse {
-            MethodId = method.Id,
-            RecoveryCodes = recoveryCodes,
-        });
+        var response = await _finalizer.FinalizeAsync(userId, method, cancellationToken).ConfigureAwait(false);
+        return Result<MethodCreatedResponse>.Success(response);
     }
 
     private async Task<IReadOnlyList<TwoFactorMethod>> GetWebAuthnMethodsAsync(string userId, CancellationToken cancellationToken) {
