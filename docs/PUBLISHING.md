@@ -6,11 +6,19 @@ Set the new version in:
 - `.Net/Directory.Build.props` (`<Version>`)
 - `Core/protocol/omni2fa.openapi.yaml` `info.version` — **only on a contract change** (= `x.y.0`)
 
-## 2. npm  (login + 2FA or granular token; `@omni2fa` org must exist)
-```bash
+## 2. npm  (granular/automation token — no interactive login, no OTP)
+One-time: at npmjs.com → **Access Tokens**, create a **Granular Access Token** with **Read and write** on the `@omni2fa` packages (or the whole scope). Automation/granular tokens bypass 2FA, so no `--otp`.
+
+Set the token once in your user npm config (lands in `~/.npmrc`, nothing to commit):
+```powershell
+npm config set //registry.npmjs.org/:_authToken npm_xxxxxxxxxxxxxxxxxxxx
+```
+Then publish (both packages already set `publishConfig.access: public`):
+```powershell
+npm whoami            # confirms the token authenticates
 npm run build
-npm publish --workspace @omni2fa/core  --otp=<code>
-npm publish --workspace @omni2fa/react --otp=<code>
+npm publish --workspace @omni2fa/core
+npm publish --workspace @omni2fa/react
 ```
 - order matters: core before react. `react-mui` is `private` → skipped.
 
