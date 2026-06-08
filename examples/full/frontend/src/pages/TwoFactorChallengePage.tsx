@@ -13,7 +13,7 @@ interface TwoFactorChallengeNavState {
 export function TwoFactorChallengePage() {
     const navigate = useNavigate();
     const { setSession } = useAuth();
-    const { status, context, pick, submit, reset } = useChallenge();
+    const { status, context, pick, submit, resend, reset } = useChallenge();
     const location = useLocation();
     const available = (location.state as TwoFactorChallengeNavState | null)?.availableMethods ?? [];
     const [selectedMethodId, setSelectedMethodId] = useState(available[0]?.id ?? '');
@@ -83,10 +83,12 @@ export function TwoFactorChallengePage() {
 
                     {status === 'starting' && <Typography>Preparing…</Typography>}
 
-                    {(status === 'awaitingCode' || status === 'verifying') && (
+                    {(status === 'awaitingCode' || status === 'resending' || status === 'verifying') && (
                         <Stack component="form" spacing={2} onSubmit={verifyCode}>
                             <Typography variant="body2" color="text.secondary">
-                                Open your authenticator app and enter the 6-digit code.
+                                {context.methodType === 'Email'
+                                    ? 'Enter the 6-digit code we emailed you.'
+                                    : 'Open your authenticator app and enter the 6-digit code.'}
                             </Typography>
                             <TextField
                                 label="Code"
@@ -95,9 +97,12 @@ export function TwoFactorChallengePage() {
                                 inputProps={{ inputMode: 'numeric', autoComplete: 'one-time-code' }}
                                 autoFocus
                             />
-                            <Button type="submit" variant="contained" disabled={status === 'verifying' || code.length !== 6}>
+                            <Button type="submit" variant="contained" disabled={status !== 'awaitingCode' || code.length !== 6}>
                                 {status === 'verifying' ? 'Verifying…' : 'Verify'}
                             </Button>
+                            {context.methodType === 'Email' && (
+                                <Button onClick={resend} disabled={status !== 'awaitingCode'}>Resend code</Button>
+                            )}
                         </Stack>
                     )}
 

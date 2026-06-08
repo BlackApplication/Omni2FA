@@ -11,6 +11,10 @@
   </ItemGroup>
 
   <ItemGroup>
+    <PackageReference Include="MailKit" Version="4.16.0" />
+  </ItemGroup>
+
+  <ItemGroup>
     <ProjectReference Include="..\..\Core\Omni2FA.Core\Omni2FA.Core.csproj" />
     <ProjectReference Include="..\..\Core\Omni2FA.WebAuthn\Omni2FA.WebAuthn.csproj" />
   </ItemGroup>

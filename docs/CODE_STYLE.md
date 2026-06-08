@@ -18,6 +18,7 @@ This is a **living document**. Whenever a new rule is agreed upon during a sessi
   - `Extensions/`
   - `Configurations/` (.NET EF) or `config/` (JS)
 - Never dump multiple unrelated types into a single file because they happen to be small.
+- **Exception — pure type aliases over generated types.** TypeScript aliases that just re-project a generated shape (`export type X = components['schemas']['X']`) are *not* concepts — they have no runtime presence and no logic. Group them in one barrel file (`types/dtos.ts`), not one file each; a file per alias is noise. This exception is narrow: real values (`const` groups, `enum`s) and interfaces/types that carry their own definition still get their own file.
 
 ## 2. Braces & line wrapping (C# and TypeScript)
 

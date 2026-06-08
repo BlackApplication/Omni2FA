@@ -8,6 +8,8 @@ const initialContext: ChallengeContext = {
     methodId: null,
     methodType: null,
     userId: null,
+    expiresAt: null,
+    resendAvailableAt: null,
     errorCode: null,
     errorMessage: null,
 };
@@ -21,6 +23,13 @@ export function createChallengeMachine(client: IOmni2FaClient) {
         actors: {
             startChallenge: fromPromise(async ({ input }: { input: { methodId: string } }) => {
                 const result = await client.startChallenge({ methodId: input.methodId });
+                if (!result.ok) {
+                    throw new Omni2FaApiError(result.code, result.message, result.httpStatus, result.details ?? null);
+                }
+                return result.value;
+            }),
+            resendChallenge: fromPromise(async ({ input }: { input: { methodId: string } }) => {
+                const result = await client.resendChallenge({ methodId: input.methodId });
                 if (!result.ok) {
                     throw new Omni2FaApiError(result.code, result.message, result.httpStatus, result.details ?? null);
                 }
@@ -58,11 +67,7 @@ export function createChallengeMachine(client: IOmni2FaClient) {
                     },
                     onDone: {
                         target: 'awaitingCode',
-                        actions: ({ context, event }) => {
-                            context.methodType = event.output.type;
-                            context.errorCode = null;
-                            context.errorMessage = null;
-                        },
+                        actions: ({ context, event }) => assignStartOutput(context, event.output),
                     },
                     onError: {
                         target: 'failed',
@@ -73,7 +78,25 @@ export function createChallengeMachine(client: IOmni2FaClient) {
             awaitingCode: {
                 on: {
                     submit: { target: 'verifying' },
+                    resend: { target: 'resending' },
                     reset: { target: 'idle', actions: assignInitial },
+                },
+            },
+            resending: {
+                invoke: {
+                    src: 'resendChallenge',
+                    input: ({ context }) => {
+                        if (!context.methodId) throw new Error('no methodId');
+                        return { methodId: context.methodId };
+                    },
+                    onDone: {
+                        target: 'awaitingCode',
+                        actions: ({ context, event }) => assignStartOutput(context, event.output),
+                    },
+                    onError: {
+                        target: 'awaitingCode',
+                        actions: ({ context, event }) => assignApiError(context, event.error),
+                    },
                 },
             },
             verifying: {
@@ -113,10 +136,20 @@ export function createChallengeMachine(client: IOmni2FaClient) {
     });
 }
 
+function assignStartOutput(context: ChallengeContext, output: { type: ChallengeContext['methodType']; expiresAt?: string | null; resendAvailableAt?: string | null }) {
+    context.methodType = output.type;
+    context.expiresAt = output.expiresAt ?? null;
+    context.resendAvailableAt = output.resendAvailableAt ?? null;
+    context.errorCode = null;
+    context.errorMessage = null;
+}
+
 function assignInitial({ context }: { context: ChallengeContext }) {
     context.methodId = null;
     context.methodType = null;
     context.userId = null;
+    context.expiresAt = null;
+    context.resendAvailableAt = null;
     context.errorCode = null;
     context.errorMessage = null;
 }

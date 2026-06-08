@@ -16,6 +16,7 @@ export function useChallenge(): IUseChallengeResult {
         context,
         pick: (methodId) => actor.send({ type: 'pick', methodId }),
         submit: (code) => actor.send({ type: 'submit', code }),
+        resend: () => actor.send({ type: 'resend' }),
         reset: () => actor.send({ type: 'reset' }),
     };
 }

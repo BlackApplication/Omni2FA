@@ -1,11 +1,22 @@
 # Omni2FA — Example app
 
-End-to-end sandbox demonstrating the v0.1 library: register, sign in, enroll a TOTP authenticator, sign out, sign in again, verify with TOTP, manage methods.
+End-to-end sandbox for the Omni2FA library. A single growing reference app — updated with every
+`v0.x` release. As of **v0.2** it demonstrates: register, sign in, enroll a **TOTP** authenticator
+or an **Email OTP** method, sign out, sign back in and verify with either method, manage methods.
+
+> This is **one** full example (`examples/full`) — host backend (ASP.NET Core) + host frontend
+> (React) wiring Omni2FA in. It is the same app across versions; WebAuthn/passkeys join it in v0.3.
 
 ## Prerequisites
 
 - **Node.js** 20 or newer
 - **.NET 8 SDK**
+- **A local SMTP catcher** — only needed to receive Email OTP codes. [Mailpit](https://github.com/axllent/mailpit) is the easy default:
+  ```bash
+  docker run -d -p 1025:1025 -p 8025:8025 axllent/mailpit
+  ```
+  SMTP listens on `localhost:1025` (matches `appsettings.json`); the web inbox is at `http://localhost:8025`.
+  Without it, TOTP still works fully — only Email enrollment/login needs a place for the code to land.
 
 ## Run
 
@@ -17,6 +28,9 @@ Open two terminals from the **repo root**.
 cd examples/full/backend
 dotnet run --urls http://localhost:5000
 ```
+
+On first run it creates a local **SQLite** file `omni2fa-example.db` next to the project (gitignored).
+Delete it to reset all users and 2FA state.
 
 **Terminal 2 — frontend** (Vite dev server on `http://localhost:5173`):
 
@@ -32,36 +46,65 @@ Open `http://localhost:5173`.
 
 ## What to try
 
+### TOTP (authenticator app)
+
 1. **Register** an account on `/register` — you'll land on `/profile` with no 2FA enrolled.
 2. Click **Add TOTP** in the *Two-factor authentication* card. Scan the QR with Google Authenticator / Authy / 1Password / Bitwarden. Submit the 6-digit code.
-3. **Sign out**.
-4. **Sign in** with the same email/password. You'll be redirected to `/2fa`. Pick the method, enter the current code from your authenticator, submit.
-5. Back on `/profile` — verified through TOTP, host session JWT issued by `/auth/finalize`.
-6. Remove the method via the trash-can icon — your next sign in will skip the 2FA step.
+3. **Sign out**, then **sign in** again. You'll be redirected to `/2fa`. Pick the TOTP method, enter the current code, submit.
+
+### Email OTP
+
+4. On `/profile`, click **Add Email**. Enter any address (it doesn't have to be real — the code lands in Mailpit). A code is emailed; open `http://localhost:8025`, copy it, confirm. Use **Resend code** if the cooldown has passed.
+5. **Sign out**, **sign in** again, and on `/2fa` pick the **Email** method. A fresh code is sent — grab it from Mailpit and verify. **Resend code** is available there too.
+
+### Manage
+
+6. Back on `/profile` — verified, host session JWT issued by `/auth/finalize`.
+7. Remove a method via the trash-can icon. With no methods left, the next sign in skips the 2FA step.
+
+> **Who owns what:** the host verifies the password and issues the final session JWT; Omni2FA issues
+> the short-lived pre-auth token and runs the 2FA ceremony. The **email address is supplied by the
+> host** in the enroll request — Omni2FA stores it on the method and sends there at login, but never
+> derives it from a claim or verifies ownership (host policy).
 
 ## What's where
 
 ```
 examples/full/
-├── backend/                      ASP.NET Core 8, in-memory EF, controllers + Minimal API endpoints from Omni2FA
+├── backend/                      ASP.NET Core 8, EF Core + SQLite, controllers + Minimal API endpoints from Omni2FA
 │   ├── Controllers/              AuthController + UserController
 │   ├── Services/                 AuthService, PasswordHasher, HostSessionIssuer
 │   ├── Entities/User.cs          host's user table
 │   ├── Dtos/Auth/                LoginRequest/Response, TwoFactorChallengeResponse, …
 │   ├── AppDbContext.cs           ApplyOmni2FaConfiguration() wires the 2FA tables
-│   ├── Program.cs                AddOmni2Fa + MapOmni2Fa + JwtBearer for host session
-│   └── appsettings.json          dev keys
+│   ├── Program.cs                AddOmni2Fa + MapOmni2Fa + JwtBearer for host session; SQLite + EnsureCreated
+│   └── appsettings.json          dev keys + Omni2Fa:Email SMTP (points at localhost:1025)
 └── frontend/                     Vite + React 19 + MUI v6
     ├── src/
     │   ├── api/authClient.ts     host's own auth fetchers (NOT part of Omni2FA)
     │   ├── auth/                 AuthContext holding the host session JWT
     │   ├── pages/                LoginPage, RegisterPage, TwoFactorChallengePage, ProfilePage
-    │   ├── components/           TwoFactorSection, AddTotpDialog, ProtectedRoute
+    │   ├── components/           TwoFactorSection, AddTotpDialog, AddEmailDialog, ProtectedRoute
     │   ├── omni2fa.ts            createOmni2Fa({ baseUrl: '/api/2fa' }) singleton
     │   └── main.tsx              ThemeProvider + Omni2FaProvider + AuthProvider
     └── vite.config.ts            proxies /auth, /user, /api to the backend
 ```
 
+## Configuring email (and using your own sender)
+
+The example uses the built-in MailKit SMTP sender, configured under `Omni2Fa:Email` in
+`appsettings.json` — point `Smtp` at any server (set `Username`/`Password`/`UseStartTls` for a real
+one; supply secrets via env vars or user-secrets, not the file). To send through your **own** email
+infrastructure instead, register an `IEmailSender` before `AddOmni2Fa(...)` and Omni2FA uses it,
+ignoring the SMTP config entirely.
+
+By default codes are sent on a **background worker** (`Omni2Fa:Email:BackgroundDelivery`, on) so the
+endpoints return instantly and SMTP latency/failures don't block the user — delivery errors are
+logged. Set it to `false` to send inline (awaited) if you'd rather have SMTP errors surface to the
+caller.
+
 ## Notes for v0.5
 
-`TwoFactorSection.tsx` and `AddTotpDialog.tsx` are hand-rolled here against `@omni2fa/react` headless hooks. When `@omni2fa/react-mui` ships (v0.5 milestone), drop them and import the styled equivalents directly.
+`TwoFactorSection.tsx`, `AddTotpDialog.tsx`, and `AddEmailDialog.tsx` are hand-rolled here against
+`@omni2fa/react` headless hooks. When `@omni2fa/react-mui` ships (v0.5 milestone), drop them and
+import the styled equivalents directly.

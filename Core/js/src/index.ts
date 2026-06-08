@@ -20,6 +20,11 @@ export type { TotpEnrollmentActor, TotpEnrollmentMachine } from './machines/totp
 export type { TotpEnrollmentContext } from './machines/totpEnrollment/TotpEnrollmentContext';
 export type { TotpEnrollmentEvent } from './machines/totpEnrollment/TotpEnrollmentEvent';
 
+export { createEmailEnrollmentMachine } from './machines/emailEnrollment/emailEnrollmentMachine';
+export type { EmailEnrollmentActor, EmailEnrollmentMachine } from './machines/emailEnrollment/emailEnrollmentMachine';
+export type { EmailEnrollmentContext } from './machines/emailEnrollment/EmailEnrollmentContext';
+export type { EmailEnrollmentEvent } from './machines/emailEnrollment/EmailEnrollmentEvent';
+
 export { createChallengeMachine } from './machines/challenge/challengeMachine';
 export type { ChallengeActor, ChallengeMachine } from './machines/challenge/challengeMachine';
 export type { ChallengeContext } from './machines/challenge/ChallengeContext';
@@ -33,14 +38,21 @@ export type { MethodsEvent } from './machines/methods/MethodsEvent';
 export { createOmni2Fa } from './createOmni2Fa';
 export type { IOmni2Fa } from './Interfaces/IOmni2Fa';
 
-export type { ChallengeStartRequest } from './types/dtos/ChallengeStartRequest';
-export type { ChallengeStartResponse } from './types/dtos/ChallengeStartResponse';
-export type { ChallengeVerifyRequest } from './types/dtos/ChallengeVerifyRequest';
-export type { ErrorResponse } from './types/dtos/ErrorResponse';
-export type { MethodCreatedResponse } from './types/dtos/MethodCreatedResponse';
-export type { PreAuthChallengeResponse } from './types/dtos/PreAuthChallengeResponse';
-export type { TotpEnrollConfirmRequest } from './types/dtos/TotpEnrollConfirmRequest';
-export type { TotpEnrollStartResponse } from './types/dtos/TotpEnrollStartResponse';
-export type { TwoFactorMethodDto } from './types/dtos/TwoFactorMethodDto';
-export type { TwoFactorMethodType } from './types/dtos/TwoFactorMethodType';
-export type { VerifySuccessResponse } from './types/dtos/VerifySuccessResponse';
+export type {
+    ChallengeResendRequest,
+    ChallengeStartRequest,
+    ChallengeStartResponse,
+    ChallengeVerifyRequest,
+    EmailEnrollStartRequest,
+    EmailEnrollStartResponse,
+    EmailEnrollConfirmRequest,
+    EmailEnrollResendRequest,
+    ErrorResponse,
+    MethodCreatedResponse,
+    PreAuthChallengeResponse,
+    TotpEnrollConfirmRequest,
+    TotpEnrollStartResponse,
+    TwoFactorMethodDto,
+    TwoFactorMethodType,
+    VerifySuccessResponse,
+} from './types/dtos';

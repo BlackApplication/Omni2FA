@@ -10,4 +10,10 @@ namespace Omni2FA.Core.Dtos;
 public class ChallengeStartResponse {
     /// <summary>Type of the method that was started.</summary>
     public required TwoFactorMethodType Type { get; init; }
+
+    /// <summary>UTC. For Email — when the sent code stops validating. Null for TOTP.</summary>
+    public DateTime? ExpiresAt { get; init; }
+
+    /// <summary>UTC. For Email — earliest time a resend is permitted. Null for TOTP.</summary>
+    public DateTime? ResendAvailableAt { get; init; }
 }

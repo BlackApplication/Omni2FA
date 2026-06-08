@@ -2,6 +2,33 @@
 
 All notable changes to Omni2FA will be documented in this file. Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); versions follow [SemVer](https://semver.org/).
 
+## [0.2.0] — 2026-06-08
+
+### Added
+
+#### .NET
+- Email OTP enrollment endpoints under `/api/2fa`: `POST /enroll/email/start`, `POST /enroll/email/confirm`, `POST /enroll/email/resend`. The host supplies the destination address in the request body — Omni2FA does not read it from a claim and does not own address verification.
+- Email OTP login: `POST /challenge/start` issues and sends a code for Email methods; `POST /challenge/resend` re-sends it (cooldown-guarded); `POST /challenge/verify` validates it.
+- `IEmailSender` (transport) with a default MailKit/SMTP implementation registered via `TryAdd` — hosts replace it with their own email infrastructure. `IEmailMessageBuilder` (copy) with a default English implementation, overridable for localization.
+- Background email delivery by default (`EmailOptions.BackgroundDelivery`, on): OTP endpoints return without waiting on SMTP — messages queue onto an in-process channel drained by a hosted worker, send failures are logged, not surfaced. Set false for inline (awaited) send. Implemented via `IEmailDispatcher`.
+- `IEmailOtpService` primitive (generate, hash, send, verify) and `IEmailEnrollmentService` orchestrator. Codes are SHA-256 hashed at rest; verification is constant-time.
+- `EmailOptions` (digits, TTL, resend cooldown, sender identity, SMTP) bound under `Omni2Fa:Email`.
+- `TwoFactorMethod.EmailAddress` and `TwoFactorChallenge.EmailAddress` columns; `ITwoFactorChallengeStore.GetActiveLoginChallengeAsync` for method-keyed login challenges.
+
+#### TypeScript core (`@omni2fa/core`)
+- `emailEnrollmentMachine` (start → awaitingCode → confirming, with resend) and challenge-machine Email support (resend + `expiresAt`/`resendAvailableAt` in context).
+- Client methods `startEmailEnrollment`, `confirmEmailEnrollment`, `resendEmailEnrollment`, `resendChallenge`.
+
+#### React adapter (`@omni2fa/react`)
+- `useEmailEnrollment` + `useEmailEnrollmentSelector`. `useChallenge` gains a `resend` action.
+
+#### Protocol
+- OpenAPI bumped to `0.2.0` with the Email enrollment endpoints, `/challenge/resend`, and `expiresAt`/`resendAvailableAt` on `ChallengeStartResponse`.
+
+#### Example (`examples/full`)
+- Switched from EF InMemory to **SQLite** (state survives restarts — needed for realistic challenge/login testing).
+- Email OTP enrollment dialog and Email login path. SMTP points at a local catcher (`localhost:1025`, e.g. Mailpit) by default.
+
 ## [0.1.0] — 2026-05-22
 
 ### Added

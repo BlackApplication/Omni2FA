@@ -20,6 +20,7 @@ public static class EndpointRouteBuilderExtensions {
 
         MethodsEndpoints.Map(group);
         EnrollTotpEndpoints.Map(group);
+        EnrollEmailEndpoints.Map(group);
         ChallengeEndpoints.Map(group);
 
         return endpoints;

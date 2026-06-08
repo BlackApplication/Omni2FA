@@ -9,6 +9,10 @@ export { useTotpEnrollment } from './hooks/useTotpEnrollment';
 export { useTotpEnrollmentSelector } from './hooks/useTotpEnrollmentSelector';
 export type { IUseTotpEnrollmentResult, TotpEnrollmentStatus } from './Interfaces/IUseTotpEnrollmentResult';
 
+export { useEmailEnrollment } from './hooks/useEmailEnrollment';
+export { useEmailEnrollmentSelector } from './hooks/useEmailEnrollmentSelector';
+export type { IUseEmailEnrollmentResult, EmailEnrollmentStatus } from './Interfaces/IUseEmailEnrollmentResult';
+
 export { useChallenge } from './hooks/useChallenge';
 export { useChallengeSelector } from './hooks/useChallengeSelector';
 export type { IUseChallengeResult, ChallengeStatus } from './Interfaces/IUseChallengeResult';

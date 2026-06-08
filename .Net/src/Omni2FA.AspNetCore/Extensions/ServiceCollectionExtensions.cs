@@ -1,6 +1,7 @@
 using Microsoft.AspNetCore.Http;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
+using Omni2FA.AspNetCore.Email;
 using Omni2FA.AspNetCore.Filters;
 using Omni2FA.AspNetCore.Services;
 using Omni2FA.AspNetCore.Services.Interfaces;
@@ -33,6 +34,20 @@ public static class ServiceCollectionExtensions {
         services.AddScoped<ITwoFactorMethodService, TwoFactorMethodService>();
         services.AddScoped<ITotpEnrollmentService, TotpEnrollmentService>();
         services.AddScoped<ITwoFactorChallengeService, TwoFactorChallengeService>();
+        services.AddScoped<IEmailEnrollmentService, EmailEnrollmentService>();
+
+        // Email OTP: transport and copy are pluggable (TryAdd → host registrations win); the OTP
+        // primitive is scoped so it can consume a host-registered scoped IEmailSender if present.
+        services.TryAddSingleton<IEmailMessageBuilder, DefaultEmailMessageBuilder>();
+        services.TryAddSingleton<IEmailSender, SmtpEmailSender>();
+        services.AddScoped<IEmailOtpService, EmailOtpService>();
+
+        // Delivery seam: EmailDispatcher honors EmailOptions.BackgroundDelivery — enqueue onto the
+        // channel (drained by the hosted worker) or send inline. Always registered; the option, not
+        // the registration, picks the path, so it stays togglable from configuration at runtime.
+        services.AddSingleton<EmailDispatchChannel>();
+        services.AddScoped<IEmailDispatcher, EmailDispatcher>();
+        services.AddHostedService<EmailDispatchBackgroundService>();
 
         services.TryAddSingleton<IUserContextAccessor, UserContextAccessor>();
 

@@ -2,7 +2,7 @@ openapi: 3.1.0
 
 info:
   title: Omni2FA API
-  version: 0.1.0
+  version: 0.2.0
   summary: Cross-stack HTTP contract for multi-method 2FA.
   description: |
     The HTTP contract that any backend implementing Omni2FA must satisfy, and
@@ -59,6 +59,8 @@ tags:
       via the server-side helper `IPreAuthTokenIssuer.IssueAsync(userId)`).
   - name: enroll-totp
     description: Enroll a TOTP authenticator (Google Authenticator, Authy, 1Password, …).
+  - name: enroll-email
+    description: Enroll an Email OTP method — the host supplies the destination address, the server issues and sends a one-time code.
 
 paths:
   # ------------------------------------------------------------------
@@ -163,6 +165,43 @@ paths:
         '429':
           $ref: '#/components/responses/TooManyRequests'
 
+  /challenge/resend:
+    post:
+      tags: [challenge]
+      operationId: resendChallenge
+      summary: Re-send the login OTP for a method that delivers codes out-of-band (Email).
+      description: |
+        For **Email** — re-sends the one-time code for the active login challenge of the
+        given method, subject to a resend cooldown. For methods that don't deliver codes
+        (TOTP, WebAuthn) this is not applicable and returns `400 VALIDATION_FAILED`.
+      security:
+        - PreAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ChallengeResendRequest'
+      responses:
+        '200':
+          description: A fresh code was sent (or the previous one re-sent).
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ChallengeStartResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/PreAuthInvalidOrExpired'
+        '404':
+          description: No active challenge for the given method under the current pre-auth user.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+
   /challenge/verify:
     post:
       tags: [challenge]
@@ -192,6 +231,110 @@ paths:
           $ref: '#/components/responses/BadRequest'
         '401':
           description: Code invalid, pre-auth invalid/expired, or challenge consumed/missing.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+
+  # ------------------------------------------------------------------
+  #  enrollment — Email OTP
+  # ------------------------------------------------------------------
+  /enroll/email/start:
+    post:
+      tags: [enroll-email]
+      operationId: startEmailEnrollment
+      summary: Begin Email OTP enrollment.
+      description: |
+        The host supplies the destination email address — Omni2FA does not read it from a
+        claim and does not own address verification (that is the host's responsibility). The
+        server issues a one-time code, persists it as a pending enrollment, and emails it.
+      security:
+        - HostSession: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/EmailEnrollStartRequest'
+      responses:
+        '200':
+          description: Enrollment started, OTP emailed.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/EmailEnrollStartResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '409':
+          description: An Email method is already enrolled for this user.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /enroll/email/confirm:
+    post:
+      tags: [enroll-email]
+      operationId: confirmEmailEnrollment
+      summary: Confirm Email OTP enrollment by verifying the emailed code.
+      security:
+        - HostSession: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/EmailEnrollConfirmRequest'
+      responses:
+        '200':
+          description: Email method enrolled.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MethodCreatedResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          description: No pending Email enrollment for this user, or it has expired.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+
+  /enroll/email/resend:
+    post:
+      tags: [enroll-email]
+      operationId: resendEmailEnrollment
+      summary: Re-send the enrollment OTP, subject to a resend cooldown.
+      security:
+        - HostSession: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/EmailEnrollResendRequest'
+      responses:
+        '200':
+          description: A fresh code was sent.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/EmailEnrollStartResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          description: No pending Email enrollment for this user, or it has expired.
           content:
             application/json:
               schema:
@@ -382,13 +525,31 @@ components:
       type: object
       description: |
         Method-specific challenge payload. `type` discriminates the shape.
-        For TOTP — empty payload (just confirms challenge started).
-        Email/WebAuthn payloads will be added in v0.2/v0.3.
+        For TOTP — empty payload (just confirms challenge started); `expiresAt` and
+        `resendAvailableAt` are null. For Email — an OTP was sent; `expiresAt` is when
+        it stops validating and `resendAvailableAt` is when a resend becomes allowed.
+        WebAuthn assertion options will be added in v0.3.
       required: [type]
       properties:
         type:
           $ref: '#/components/schemas/TwoFactorMethodType'
-        # method-specific fields added in v0.2 (email) and v0.3 (webauthn assertion options)
+        expiresAt:
+          type: [string, "null"]
+          format: date-time
+          description: For Email — when the sent code stops validating. Null for TOTP.
+        resendAvailableAt:
+          type: [string, "null"]
+          format: date-time
+          description: For Email — earliest time a resend is permitted. Null for TOTP.
+
+    ChallengeResendRequest:
+      type: object
+      required: [methodId]
+      properties:
+        methodId:
+          type: string
+          format: uuid
+          description: The method whose active login OTP should be re-sent.
 
     ChallengeVerifyRequest:
       type: object
@@ -417,6 +578,62 @@ components:
             Verified user's identifier, stringified. The host application casts
             this to its native userId type (Guid/long/int/email) and uses it to
             mint its final session JWT/cookie. Omni2FA does not issue session tokens.
+
+    # --- Email enrollment ---
+
+    EmailEnrollStartRequest:
+      type: object
+      required: [email]
+      properties:
+        email:
+          type: string
+          format: email
+          description: |
+            Destination address the OTP is sent to, supplied by the host. Omni2FA does not
+            derive it from a claim and does not verify address ownership — that is host policy.
+          example: 'alice@example.com'
+
+    EmailEnrollStartResponse:
+      type: object
+      required: [enrollmentId, expiresAt, resendAvailableAt]
+      properties:
+        enrollmentId:
+          type: string
+          format: uuid
+          description: Identifier for the pending enrollment ceremony. Pass back in `confirm` / `resend`.
+        expiresAt:
+          type: string
+          format: date-time
+          description: When the emailed code stops validating.
+        resendAvailableAt:
+          type: string
+          format: date-time
+          description: Earliest time a resend is permitted (cooldown).
+
+    EmailEnrollConfirmRequest:
+      type: object
+      required: [enrollmentId, code]
+      properties:
+        enrollmentId:
+          type: string
+          format: uuid
+          description: Value returned from `/enroll/email/start`.
+        code:
+          type: string
+          description: The numeric code from the enrollment email.
+          example: '123456'
+        name:
+          type: [string, "null"]
+          description: Optional human-readable label for this method.
+
+    EmailEnrollResendRequest:
+      type: object
+      required: [enrollmentId]
+      properties:
+        enrollmentId:
+          type: string
+          format: uuid
+          description: Value returned from `/enroll/email/start`.
 
     # --- TOTP enrollment ---
 

@@ -14,6 +14,9 @@ public class Omni2FaOptions {
     /// <summary>TOTP-specific settings — issuer name, secret length, code digits, tolerance.</summary>
     public TotpOptions Totp { get; set; } = new();
 
+    /// <summary>Email OTP settings — code shape, lifetimes, sender identity, SMTP transport.</summary>
+    public EmailOptions Email { get; set; } = new();
+
     /// <summary>Pre-auth token settings — signing key, issuer, audience, TTL.</summary>
     public PreAuthOptions PreAuth { get; set; } = new();
 

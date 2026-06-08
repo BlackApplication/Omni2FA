@@ -1,4 +1,4 @@
-import type { TwoFactorMethodDto } from '../../types/dtos/TwoFactorMethodDto';
+import type { TwoFactorMethodDto } from '../../types/dtos';
 
 /** Snapshot context of <see cref="createMethodsMachine"/>. */
 export interface MethodsContext {

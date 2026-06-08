@@ -4,15 +4,22 @@ import type { IStorage } from '../storage/Interfaces/IStorage';
 import { MemoryStorage } from '../storage/MemoryStorage';
 import { Omni2FaErrorCodes } from '../errors/codes';
 import { getDefaultMessage } from '../errors/messages';
-import type { ChallengeStartRequest } from '../types/dtos/ChallengeStartRequest';
-import type { ChallengeStartResponse } from '../types/dtos/ChallengeStartResponse';
-import type { ChallengeVerifyRequest } from '../types/dtos/ChallengeVerifyRequest';
-import type { ErrorResponse } from '../types/dtos/ErrorResponse';
-import type { MethodCreatedResponse } from '../types/dtos/MethodCreatedResponse';
-import type { TotpEnrollConfirmRequest } from '../types/dtos/TotpEnrollConfirmRequest';
-import type { TotpEnrollStartResponse } from '../types/dtos/TotpEnrollStartResponse';
-import type { TwoFactorMethodDto } from '../types/dtos/TwoFactorMethodDto';
-import type { VerifySuccessResponse } from '../types/dtos/VerifySuccessResponse';
+import type {
+    ChallengeResendRequest,
+    ChallengeStartRequest,
+    ChallengeStartResponse,
+    ChallengeVerifyRequest,
+    EmailEnrollConfirmRequest,
+    EmailEnrollResendRequest,
+    EmailEnrollStartRequest,
+    EmailEnrollStartResponse,
+    ErrorResponse,
+    MethodCreatedResponse,
+    TotpEnrollConfirmRequest,
+    TotpEnrollStartResponse,
+    TwoFactorMethodDto,
+    VerifySuccessResponse,
+} from '../types/dtos';
 import type { ClientCall } from './Interfaces/ClientCall';
 import type { IOmni2FaClient } from './Interfaces/IOmni2FaClient';
 import type { Omni2FaClientConfig } from './Omni2FaClientConfig';
@@ -79,8 +86,28 @@ export class Omni2FaClient implements IOmni2FaClient {
         return this.toCall(data, error, response);
     }
 
+    async startEmailEnrollment(request: EmailEnrollStartRequest): Promise<ClientCall<EmailEnrollStartResponse>> {
+        const { data, error, response } = await this.inner.POST('/enroll/email/start', { body: request });
+        return this.toCall(data, error, response);
+    }
+
+    async confirmEmailEnrollment(request: EmailEnrollConfirmRequest): Promise<ClientCall<MethodCreatedResponse>> {
+        const { data, error, response } = await this.inner.POST('/enroll/email/confirm', { body: request });
+        return this.toCall(data, error, response);
+    }
+
+    async resendEmailEnrollment(request: EmailEnrollResendRequest): Promise<ClientCall<EmailEnrollStartResponse>> {
+        const { data, error, response } = await this.inner.POST('/enroll/email/resend', { body: request });
+        return this.toCall(data, error, response);
+    }
+
     async startChallenge(request: ChallengeStartRequest): Promise<ClientCall<ChallengeStartResponse>> {
         const { data, error, response } = await this.inner.POST('/challenge/start', { body: request });
+        return this.toCall(data, error, response);
+    }
+
+    async resendChallenge(request: ChallengeResendRequest): Promise<ClientCall<ChallengeStartResponse>> {
+        const { data, error, response } = await this.inner.POST('/challenge/resend', { body: request });
         return this.toCall(data, error, response);
     }
 

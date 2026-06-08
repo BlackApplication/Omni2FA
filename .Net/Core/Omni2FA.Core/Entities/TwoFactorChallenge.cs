@@ -32,6 +32,12 @@ public class TwoFactorChallenge {
     /// <summary>Hash of the server-issued Email OTP. Plaintext code is never stored.</summary>
     public string? EmailOtpHash { get; set; }
 
+    /// <summary>
+    /// Destination address for an Email ceremony. Set on enrollment challenges (the method does
+    /// not exist yet); login challenges read the address from the method instead.
+    /// </summary>
+    public string? EmailAddress { get; set; }
+
     /// <summary>Binary challenge bytes for a WebAuthn ceremony (registration or assertion).</summary>
     public byte[]? WebAuthnChallenge { get; set; }
 

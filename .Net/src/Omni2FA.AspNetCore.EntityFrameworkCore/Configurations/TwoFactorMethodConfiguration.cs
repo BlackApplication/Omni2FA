@@ -28,6 +28,7 @@ public class TwoFactorMethodConfiguration : IEntityTypeConfiguration<TwoFactorMe
         builder.Property(m => m.IsActive).IsRequired();
         builder.Property(m => m.CreatedAt).IsRequired();
         builder.Property(m => m.TotpSecret).HasMaxLength(512);
+        builder.Property(m => m.EmailAddress).HasMaxLength(256);
         builder.Property(m => m.WebAuthnCredentialId).HasMaxLength(256);
         builder.Property(m => m.WebAuthnPublicKey).HasMaxLength(512);
 

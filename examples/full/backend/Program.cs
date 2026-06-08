@@ -15,7 +15,8 @@ builder.Services.AddControllers();
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen();
 
-builder.Services.AddDbContext<AppDbContext>(o => o.UseInMemoryDatabase("Omni2FaExample"));
+var dbPath = Path.Combine(builder.Environment.ContentRootPath, "omni2fa-example.db");
+builder.Services.AddDbContext<AppDbContext>(o => o.UseSqlite($"Data Source={dbPath}"));
 
 builder.Services.Configure<HostJwtOptions>(builder.Configuration.GetSection(HostJwtOptions.SectionName));
 builder.Services.AddSingleton<IPasswordHasher, PasswordHasher>();
@@ -48,6 +49,10 @@ builder.Services.AddCors(o => o.AddDefaultPolicy(p => p
     .AllowCredentials()));
 
 var app = builder.Build();
+
+using (var scope = app.Services.CreateScope()) {
+    scope.ServiceProvider.GetRequiredService<AppDbContext>().Database.EnsureCreated();
+}
 
 if (app.Environment.IsDevelopment()) {
     app.UseSwagger();

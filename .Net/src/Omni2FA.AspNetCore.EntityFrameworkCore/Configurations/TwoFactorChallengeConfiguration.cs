@@ -26,6 +26,7 @@ public class TwoFactorChallengeConfiguration : IEntityTypeConfiguration<TwoFacto
         builder.Property(c => c.Kind).HasConversion<int>().IsRequired();
         builder.Property(c => c.TotpSecretCandidate).HasMaxLength(512);
         builder.Property(c => c.EmailOtpHash).HasMaxLength(256);
+        builder.Property(c => c.EmailAddress).HasMaxLength(256);
         builder.Property(c => c.WebAuthnChallenge).HasMaxLength(256);
         builder.Property(c => c.CreatedAt).IsRequired();
         builder.Property(c => c.ExpiresAt).IsRequired();
@@ -33,6 +34,9 @@ public class TwoFactorChallengeConfiguration : IEntityTypeConfiguration<TwoFacto
 
         builder.HasIndex(c => c.UserId)
             .HasDatabaseName($"IX_{_options.ChallengesTableName}_UserId");
+
+        builder.HasIndex(c => new { c.UserId, c.MethodId })
+            .HasDatabaseName($"IX_{_options.ChallengesTableName}_UserId_MethodId");
 
         builder.HasIndex(c => c.ExpiresAt)
             .HasDatabaseName($"IX_{_options.ChallengesTableName}_ExpiresAt");

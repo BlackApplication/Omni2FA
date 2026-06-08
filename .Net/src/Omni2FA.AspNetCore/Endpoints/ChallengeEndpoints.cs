@@ -32,6 +32,25 @@ internal static class ChallengeEndpoints {
         .ProducesProblem(StatusCodes.Status404NotFound)
         .ProducesProblem(StatusCodes.Status429TooManyRequests);
 
+        group.MapPost("/resend", async (
+            ChallengeResendRequest request,
+            ITwoFactorChallengeService service,
+            HttpContext http,
+            CancellationToken cancellationToken) =>
+        {
+            var userId = (string)http.Items[PreAuthContextItems.UserId]!;
+            var result = await service.ResendAsync(userId, request, cancellationToken).ConfigureAwait(false);
+            return result.ToHttpResult();
+        })
+        .WithName("resendChallenge")
+        .WithTags("challenge")
+        .Accepts<ChallengeResendRequest>("application/json")
+        .Produces<ChallengeStartResponse>(StatusCodes.Status200OK)
+        .ProducesProblem(StatusCodes.Status400BadRequest)
+        .ProducesProblem(StatusCodes.Status401Unauthorized)
+        .ProducesProblem(StatusCodes.Status404NotFound)
+        .ProducesProblem(StatusCodes.Status429TooManyRequests);
+
         group.MapPost("/verify", async (
             ChallengeVerifyRequest request,
             ITwoFactorChallengeService service,

@@ -13,6 +13,13 @@ public interface ITwoFactorChallengeStore {
     /// <summary>Find an unconsumed, unexpired challenge for the user. Returns null if none active.</summary>
     Task<TwoFactorChallenge?> GetActiveAsync(Guid challengeId, string userId, CancellationToken cancellationToken = default);
 
+    /// <summary>
+    /// Find the active (unconsumed, unexpired) login challenge for a given method and user.
+    /// Used by out-of-band methods (Email) where the challenge is keyed by method rather than
+    /// by a client-held challenge id. Returns null if none active.
+    /// </summary>
+    Task<TwoFactorChallenge?> GetActiveLoginChallengeAsync(string userId, Guid methodId, CancellationToken cancellationToken = default);
+
     /// <summary>Mark a challenge as consumed (stamps <see cref="TwoFactorChallenge.ConsumedAt"/>).</summary>
     Task MarkConsumedAsync(TwoFactorChallenge challenge, CancellationToken cancellationToken = default);
 

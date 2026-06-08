@@ -1,6 +1,6 @@
 import type { ChallengeContext } from '@omni2fa/core';
 
-export type ChallengeStatus = 'idle' | 'starting' | 'awaitingCode' | 'verifying' | 'verified' | 'failed';
+export type ChallengeStatus = 'idle' | 'starting' | 'awaitingCode' | 'resending' | 'verifying' | 'verified' | 'failed';
 
 /** Shape returned by <c>useChallenge</c>. */
 export interface IUseChallengeResult {
@@ -10,6 +10,8 @@ export interface IUseChallengeResult {
     pick: (methodId: string) => void;
     /** Submit the code/assertion for verification. */
     submit: (code: string) => void;
+    /** Re-send the login OTP (Email methods only), subject to the resend cooldown. */
+    resend: () => void;
     /** Cancel/restart — wipes context and returns to <c>idle</c>. */
     reset: () => void;
 }

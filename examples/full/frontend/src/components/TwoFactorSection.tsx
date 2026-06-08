@@ -3,15 +3,18 @@ import { Alert, Box, Button, Card, CardContent, IconButton, List, ListItem, List
 import DeleteOutlineIcon from '@mui/icons-material/DeleteOutline';
 import { useMethods } from '@omni2fa/react';
 import { AddTotpDialog } from './AddTotpDialog';
+import { AddEmailDialog } from './AddEmailDialog';
 
 /**
  * Profile-page 2FA card — list of enrolled methods + actions.
- * For v0.1 only TOTP is wired; Email + WebAuthn lanes land in v0.2/v0.3.
+ * TOTP and Email are wired; WebAuthn lands in v0.3.
  */
 export function TwoFactorSection() {
     const { items, status, errorMessage, remove } = useMethods();
-    const [dialogOpen, setDialogOpen] = useState(false);
+    const [totpDialogOpen, setTotpDialogOpen] = useState(false);
+    const [emailDialogOpen, setEmailDialogOpen] = useState(false);
     const hasTotp = items.some((m) => m.type === 'Totp');
+    const hasEmail = items.some((m) => m.type === 'Email');
 
     return (
         <Card>
@@ -19,9 +22,14 @@ export function TwoFactorSection() {
                 <Stack spacing={2}>
                     <Stack direction="row" alignItems="center" justifyContent="space-between">
                         <Typography variant="h6">Two-factor authentication</Typography>
-                        <Button variant="contained" size="small" disabled={hasTotp} onClick={() => setDialogOpen(true)}>
-                            Add TOTP
-                        </Button>
+                        <Stack direction="row" spacing={1}>
+                            <Button variant="contained" size="small" disabled={hasTotp} onClick={() => setTotpDialogOpen(true)}>
+                                Add TOTP
+                            </Button>
+                            <Button variant="outlined" size="small" disabled={hasEmail} onClick={() => setEmailDialogOpen(true)}>
+                                Add Email
+                            </Button>
+                        </Stack>
                     </Stack>
 
                     {errorMessage && <Alert severity="error">{errorMessage}</Alert>}
@@ -54,7 +62,8 @@ export function TwoFactorSection() {
                 </Stack>
             </CardContent>
             <Box>
-                <AddTotpDialog open={dialogOpen} onClose={() => setDialogOpen(false)} />
+                <AddTotpDialog open={totpDialogOpen} onClose={() => setTotpDialogOpen(false)} />
+                <AddEmailDialog open={emailDialogOpen} onClose={() => setEmailDialogOpen(false)} />
             </Box>
         </Card>
     );

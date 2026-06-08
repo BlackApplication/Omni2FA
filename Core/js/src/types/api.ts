@@ -74,6 +74,28 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/challenge/resend": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Re-send the login OTP for a method that delivers codes out-of-band (Email).
+         * @description For **Email** — re-sends the one-time code for the active login challenge of the
+         *     given method, subject to a resend cooldown. For methods that don't deliver codes
+         *     (TOTP, WebAuthn) this is not applicable and returns `400 VALIDATION_FAILED`.
+         */
+        post: operations["resendChallenge"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/challenge/verify": {
         parameters: {
             query?: never;
@@ -91,6 +113,62 @@ export interface paths {
          *     Omni2FA does **not** issue session tokens — only verification results.
          */
         post: operations["verifyChallenge"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/enroll/email/start": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Begin Email OTP enrollment.
+         * @description The host supplies the destination email address — Omni2FA does not read it from a
+         *     claim and does not own address verification (that is the host's responsibility). The
+         *     server issues a one-time code, persists it as a pending enrollment, and emails it.
+         */
+        post: operations["startEmailEnrollment"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/enroll/email/confirm": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Confirm Email OTP enrollment by verifying the emailed code. */
+        post: operations["confirmEmailEnrollment"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/enroll/email/resend": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Re-send the enrollment OTP, subject to a resend cooldown. */
+        post: operations["resendEmailEnrollment"];
         delete?: never;
         options?: never;
         head?: never;
@@ -193,11 +271,30 @@ export interface components {
         };
         /**
          * @description Method-specific challenge payload. `type` discriminates the shape.
-         *     For TOTP — empty payload (just confirms challenge started).
-         *     Email/WebAuthn payloads will be added in v0.2/v0.3.
+         *     For TOTP — empty payload (just confirms challenge started); `expiresAt` and
+         *     `resendAvailableAt` are null. For Email — an OTP was sent; `expiresAt` is when
+         *     it stops validating and `resendAvailableAt` is when a resend becomes allowed.
+         *     WebAuthn assertion options will be added in v0.3.
          */
         ChallengeStartResponse: {
             type: components["schemas"]["TwoFactorMethodType"];
+            /**
+             * Format: date-time
+             * @description For Email — when the sent code stops validating. Null for TOTP.
+             */
+            expiresAt?: string | null;
+            /**
+             * Format: date-time
+             * @description For Email — earliest time a resend is permitted. Null for TOTP.
+             */
+            resendAvailableAt?: string | null;
+        };
+        ChallengeResendRequest: {
+            /**
+             * Format: uuid
+             * @description The method whose active login OTP should be re-sent.
+             */
+            methodId: string;
         };
         ChallengeVerifyRequest: {
             /** Format: uuid */
@@ -217,6 +314,53 @@ export interface components {
              *     mint its final session JWT/cookie. Omni2FA does not issue session tokens.
              */
             userId: string;
+        };
+        EmailEnrollStartRequest: {
+            /**
+             * Format: email
+             * @description Destination address the OTP is sent to, supplied by the host. Omni2FA does not
+             *     derive it from a claim and does not verify address ownership — that is host policy.
+             * @example alice@example.com
+             */
+            email: string;
+        };
+        EmailEnrollStartResponse: {
+            /**
+             * Format: uuid
+             * @description Identifier for the pending enrollment ceremony. Pass back in `confirm` / `resend`.
+             */
+            enrollmentId: string;
+            /**
+             * Format: date-time
+             * @description When the emailed code stops validating.
+             */
+            expiresAt: string;
+            /**
+             * Format: date-time
+             * @description Earliest time a resend is permitted (cooldown).
+             */
+            resendAvailableAt: string;
+        };
+        EmailEnrollConfirmRequest: {
+            /**
+             * Format: uuid
+             * @description Value returned from `/enroll/email/start`.
+             */
+            enrollmentId: string;
+            /**
+             * @description The numeric code from the enrollment email.
+             * @example 123456
+             */
+            code: string;
+            /** @description Optional human-readable label for this method. */
+            name?: string | null;
+        };
+        EmailEnrollResendRequest: {
+            /**
+             * Format: uuid
+             * @description Value returned from `/enroll/email/start`.
+             */
+            enrollmentId: string;
         };
         TotpEnrollStartResponse: {
             /**
@@ -430,6 +574,42 @@ export interface operations {
             429: components["responses"]["TooManyRequests"];
         };
     };
+    resendChallenge: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ChallengeResendRequest"];
+            };
+        };
+        responses: {
+            /** @description A fresh code was sent (or the previous one re-sent). */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ChallengeStartResponse"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["PreAuthInvalidOrExpired"];
+            /** @description No active challenge for the given method under the current pre-auth user. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            429: components["responses"]["TooManyRequests"];
+        };
+    };
     verifyChallenge: {
         parameters: {
             query?: never;
@@ -455,6 +635,113 @@ export interface operations {
             400: components["responses"]["BadRequest"];
             /** @description Code invalid, pre-auth invalid/expired, or challenge consumed/missing. */
             401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            429: components["responses"]["TooManyRequests"];
+        };
+    };
+    startEmailEnrollment: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["EmailEnrollStartRequest"];
+            };
+        };
+        responses: {
+            /** @description Enrollment started, OTP emailed. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EmailEnrollStartResponse"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            /** @description An Email method is already enrolled for this user. */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    confirmEmailEnrollment: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["EmailEnrollConfirmRequest"];
+            };
+        };
+        responses: {
+            /** @description Email method enrolled. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MethodCreatedResponse"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            /** @description No pending Email enrollment for this user, or it has expired. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            429: components["responses"]["TooManyRequests"];
+        };
+    };
+    resendEmailEnrollment: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["EmailEnrollResendRequest"];
+            };
+        };
+        responses: {
+            /** @description A fresh code was sent. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EmailEnrollStartResponse"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            /** @description No pending Email enrollment for this user, or it has expired. */
+            404: {
                 headers: {
                     [name: string]: unknown;
                 };

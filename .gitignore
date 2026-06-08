@@ -9,6 +9,11 @@ bin/
 obj/
 appsettings.Development.json
 
+# === Example local DB ===
+*.db
+*.db-shm
+*.db-wal
+
 # === IDE ===
 .vs/
 .vscode/

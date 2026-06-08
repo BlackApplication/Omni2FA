@@ -1,5 +1,6 @@
 using Microsoft.EntityFrameworkCore;
 using Omni2FA.Core.Entities;
+using Omni2FA.Core.Enums;
 using Omni2FA.Core.Stores;
 
 namespace Omni2FA.AspNetCore.EntityFrameworkCore.Stores;
@@ -33,6 +34,14 @@ public class TwoFactorChallengeStore : ITwoFactorChallengeStore {
     public Task<TwoFactorChallenge?> GetActiveAsync(Guid challengeId, string userId, CancellationToken cancellationToken = default) {
         var now = DateTime.UtcNow;
         return Set.FirstOrDefaultAsync(c => c.Id == challengeId && c.UserId == userId && c.ConsumedAt == null && c.ExpiresAt > now, cancellationToken);
+    }
+
+    public Task<TwoFactorChallenge?> GetActiveLoginChallengeAsync(string userId, Guid methodId, CancellationToken cancellationToken = default) {
+        var now = DateTime.UtcNow;
+        return Set
+            .Where(c => c.UserId == userId && c.MethodId == methodId && c.Kind == TwoFactorChallengeKind.Login && c.ConsumedAt == null && c.ExpiresAt > now)
+            .OrderByDescending(c => c.CreatedAt)
+            .FirstOrDefaultAsync(cancellationToken);
     }
 
     public Task MarkConsumedAsync(TwoFactorChallenge challenge, CancellationToken cancellationToken = default) {

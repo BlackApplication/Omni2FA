@@ -3,6 +3,7 @@ import { Omni2FaClient } from './client/Omni2FaClient';
 import type { Omni2FaClientConfig } from './client/Omni2FaClientConfig';
 import type { IOmni2Fa } from './Interfaces/IOmni2Fa';
 import { createTotpEnrollmentMachine } from './machines/totpEnrollment/totpEnrollmentMachine';
+import { createEmailEnrollmentMachine } from './machines/emailEnrollment/emailEnrollmentMachine';
 import { createChallengeMachine } from './machines/challenge/challengeMachine';
 import { createMethodsMachine } from './machines/methods/methodsMachine';
 
@@ -14,20 +15,24 @@ export function createOmni2Fa(config: Omni2FaClientConfig): IOmni2Fa {
     const client = new Omni2FaClient(config);
 
     const totpEnrollment = createActor(createTotpEnrollmentMachine(client));
+    const emailEnrollment = createActor(createEmailEnrollmentMachine(client));
     const challenge = createActor(createChallengeMachine(client));
     const methods = createActor(createMethodsMachine(client));
 
     totpEnrollment.start();
+    emailEnrollment.start();
     challenge.start();
     methods.start();
 
     return {
         client,
         totpEnrollment,
+        emailEnrollment,
         challenge,
         methods,
         dispose() {
             totpEnrollment.stop();
+            emailEnrollment.stop();
             challenge.stop();
             methods.stop();
         },

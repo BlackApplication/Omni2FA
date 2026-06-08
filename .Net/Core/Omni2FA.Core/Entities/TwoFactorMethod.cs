@@ -30,6 +30,9 @@ public class TwoFactorMethod {
     /// <summary>Protected base32 TOTP secret. Populated when <see cref="Type"/> is TOTP.</summary>
     public string? TotpSecret { get; set; }
 
+    /// <summary>Destination address for Email OTP delivery. Populated when <see cref="Type"/> is Email. Supplied by the host at enrollment.</summary>
+    public string? EmailAddress { get; set; }
+
     public byte[]? WebAuthnCredentialId { get; set; }
 
     /// <summary>COSE-encoded.</summary>
