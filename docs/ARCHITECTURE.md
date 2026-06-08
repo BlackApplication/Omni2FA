@@ -56,6 +56,21 @@ Realistic split target: **~80% of UI-related logic lives in core**, ~20% is unav
 
 **Nothing else.** A styled package is a child of an adapter package — it imports from `@omni2fa/react` and **never** from `@omni2fa/core` directly.
 
+#### Customization is binding (styled packages must be adaptable, not take-it-or-leave-it)
+
+A drop-in styled component must still bend to the host's ecosystem without forking it. Every styled
+package is built on three principles:
+
+1. **Composable, not monolithic.** Export the small pieces (`MethodList`, `AddMethodMenu`, `TotpEnrollDialog`, `EmailEnrollDialog`, `WebAuthnEnrollDialog`, `RecoveryCodesView`, `LoginChallenge`) as first-class components. The big convenience component (`TwoFactorSection`) is **just a default composition of those pieces** — a host that wants a different layout assembles the pieces itself.
+2. **Every part is overridable via slots.** Each component takes `slots` / `slotProps` (or render-props) so any sub-element can be swapped without forking. Plus `sx` / `className` passthrough on the root and a theme that is read from the host (MUI `ThemeProvider`, Tailwind config) — never hardcoded colors.
+3. **No baked-in copy.** All user-facing text comes from props or an i18n key map (host's `react-i18next` etc.), keyed by stable error/UI codes. Behavior seams (`onEnrolled`, `onError`, `onMethodRemoved`, controlled values) are props, not internal state.
+
+The universal escape hatch remains the headless `@omni2fa/react` hooks: a host that rejects the styled
+layer entirely renders its own UI against `useChallenge()` / `useMethods()` / `useXxxEnrollment()`. The
+three tiers — **hooks (logic) → optional headless-structural components (structure + a11y, no styles) →
+thin styled skins (`react-mui`, `react-tailwind`)** — are how "drop-in for the lazy, fully customizable
+for the rest" is delivered. Building a styled package as a non-overridable monolith is a bug.
+
 ---
 
 ## 3. Adapter contract: subscribe / getSnapshot
@@ -287,3 +302,4 @@ This document is the contract for that choice.
 - **2026-05-21** — .NET dependency graph clarified: adapter packages (`Omni2FA.AspNetCore.EntityFrameworkCore`, future `Omni2FA.Dapper`, etc.) are **siblings**, all depending only on `Omni2FA.Core` plus their own infrastructure SDK. EF adapter no longer references `Omni2FA.AspNetCore`. Hosts can pull just the EF adapter without dragging in ASP.NET endpoints.
 - **2026-05-21** — pre-auth token transport principle recorded in section 7: Bearer-only by design through v1.x, opt-in cookie transport scheduled for v1.6 as a parallel option (not a replacement). Rationale: Bearer requires zero host config, behaves identically across every backend adapter, and keeps the OpenAPI contract free of cookie-policy concerns that belong to the host's session strategy.
 - **2026-06-08** — the standalone `Omni2FA.WebAuthn` package was folded into `Omni2FA.AspNetCore` (.NET drops from 4 to 3 packages). WebAuthn is a first-class 2FA method every ASP.NET host receives anyway; a separate package was speculative future-proofing (swappable crypto lib) that no consumer needed. The `IWebAuthnCeremonyService` contract stays in `Omni2FA.Core`, so the core remains FIDO2-free — only the Fido2NetLib implementation moved into the adapter. Section 6 updated to match.
+- **2026-06-08** — added binding UI-customization principles to section 2 (styled packages): composable pieces (not a monolith), slot/`sx`/theme overrides on every part, no baked-in copy, and the three-tier model (hooks → headless-structural → styled skins). Styled packages must be adaptable to the host's ecosystem, not take-it-or-leave-it.

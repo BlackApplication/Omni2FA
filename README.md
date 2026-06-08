@@ -1,236 +1,170 @@
 # Omni2FA
 
-> Drop-in **multi-method two-factor authentication** for self-hosted apps.
-> One OpenAPI contract — official adapters for popular stacks, community PRs welcome for the rest.
+> Drop-in **multi-method two-factor authentication** for self-hosted apps — TOTP, Email OTP, WebAuthn/passkeys, recovery codes — behind one OpenAPI contract.
 
+[![npm](https://img.shields.io/npm/v/%40omni2fa%2Fcore?logo=npm&label=%40omni2fa%2Fcore&color=cb3837)](https://www.npmjs.com/package/@omni2fa/core)
+[![NuGet](https://img.shields.io/nuget/v/Omni2FA.AspNetCore?logo=nuget&label=Omni2FA.AspNetCore&color=004880)](https://www.nuget.org/packages/Omni2FA.AspNetCore)
 [![License](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
-[![Status](https://img.shields.io/badge/status-WIP-orange.svg)](#status)
+[![Status](https://img.shields.io/badge/status-pre--1.0-orange.svg)](#status)
 
-Omni2FA bundles **TOTP** (authenticator apps), **Email OTP**, and **WebAuthn** (passkeys, security keys) into a single coherent flow — with ready UI and ready endpoints. You don't write enrollment dialogs, OTP storage, or login challenge plumbing.
+You verify the password and mint your session; Omni2FA handles everything 2FA in between — enrollment, the login challenge, OTP/WebAuthn ceremonies, recovery codes, persistence, rate limiting, audit. **Backend service + endpoints + EF store on .NET; headless hooks on React.** Other stacks implement the same contract (roadmap below).
 
----
-
-## Who this is for
-
-**Self-hosted apps that own their user database** — and want a richer 2FA story than what their auth framework provides out of the box.
-
-✅ **Great fits**
-
-- **ASP.NET Core Identity** apps. Identity ships TOTP and that's it (single secret per user, no email OTP, no WebAuthn, no UI). Omni2FA layers on top — plug into your `UserManager`, keep your login flow, gain multi-method 2FA.
-- **Custom JWT / cookie auth** rolled by hand or with a small framework — same story, you own the user table, we handle 2FA.
-- **Node.js, Python, and other non-.NET backends** where you control the user model. Official adapters for Node.js (Express/Fastify/NestJS) and Python (FastAPI) ship in v1.1 and v1.2. Other stacks via community PRs — see [Supported stacks](#supported-stacks).
-
-❌ **Not for you if**
-
-- You use a **managed cloud identity provider** — **Auth0, Clerk, Cognito, Firebase Auth, Supabase Auth, Okta, WorkOS**. Your provider already ships 2FA in its dashboard. Use theirs.
-
-> ASP.NET **Core Identity** is *not* a managed provider — it's a library inside your app. It's a great fit. The "Auth0/etc." exclusion is about *cloud-hosted* identity, where you don't own the user record.
+For apps that **own their user table** (ASP.NET Core Identity, custom JWT/cookie auth, …). Not for managed identity providers (Auth0, Clerk, Cognito, Firebase, Supabase, Okta, WorkOS) — they already ship 2FA.
 
 ---
 
-## Why this exists
+## Packages
 
-> I built 2FA from scratch two times across two different products. Omni2FA exists so I — and you — never have to do it a third time.
+| Stack | Install | Notes |
+|-------|---------|-------|
+| **.NET** (ASP.NET Core) | `Omni2FA.AspNetCore` + `Omni2FA.AspNetCore.EntityFrameworkCore` | `Omni2FA.Core` comes transitively |
+| **React** | `@omni2fa/core` + `@omni2fa/react` | hooks; styled MUI dialogs (`@omni2fa/react-mui`) — planned |
 
-Existing libraries do *pieces*: TOTP math, WebAuthn ceremony, OTP generation. Stitching them into a real product — multi-method per user, login orchestration, enrollment UX, email delivery, persistence — is on you every time.
-
-Omni2FA gives you the **whole loop** as a library:
-
-- Backend service + endpoints + persistence adapter.
-- Frontend hooks + ready dialogs.
-- A shared HTTP contract so any frontend works with any backend.
+Other backends (Node, Python) and frontends (Angular, Vue) are on the [roadmap](docs/ROADMAP.md); any stack can implement the [OpenAPI contract](Core/protocol/omni2fa.openapi.yaml).
 
 ---
 
-## Goals
+## Backend — ASP.NET Core
 
-- ⚡ **Minutes to integrate.** Add the packages, configure SMTP and a store, render one section in your profile page — done.
-- 🔌 **Mix and match supported stacks.** Officially supported backends and frontends are listed in [Supported stacks](#supported-stacks). Anything not on the list can be added by implementing the OpenAPI contract — community PRs welcome.
-- 🧱 **Persistence is yours.** We define the storage interface and ship an optional EF Core adapter. You can swap in Mongo, Dapper, or anything else.
-- 🧩 **Customize the surface, not the core.** Forms, themes, copy, callbacks — open. Crypto, challenge state machine, validation — closed.
-- 🔒 **Standard primitives only.** Built on `OtpNet`, `Fido2NetLib`, `MailKit`, `@simplewebauthn/*`. No hand-rolled crypto.
-
----
-
-## Repository layout
-
-```
-Omni2FA/
-├── Core/
-│   ├── protocol/    # OpenAPI spec + JSON schemas — the cross-stack contract
-│   └── js/          # @omni2fa/core — shared TypeScript logic for any JS frontend
-│
-├── React/
-│   ├── react/       # @omni2fa/react — headless hooks + base components
-│   └── react-mui/   # @omni2fa/react-mui — ready dialogs styled with MUI
-│
-├── .Net/                              # Self-contained .NET solution
-│   ├── Omni2FA.sln
-│   ├── Core/                          # Framework-agnostic .NET backbone
-│   │   └── Omni2FA.Core/              # Models, interfaces, services, WebAuthn contract (no I/O, no ASP.NET, no EF, no Fido2)
-│   └── src/                           # ASP.NET-specific adapters
-│       ├── Omni2FA.AspNetCore/                    # Endpoints, DI, filters, email, WebAuthn ceremony (Fido2NetLib)
-│       └── Omni2FA.AspNetCore.EntityFrameworkCore/ # Optional EF Core store adapter
-│
-├── examples/        # End-to-end demo apps
-└── docs/            # Architecture notes, ADRs, API guides
+```bash
+dotnet add package Omni2FA.AspNetCore
+dotnet add package Omni2FA.AspNetCore.EntityFrameworkCore
 ```
 
----
-
-## How it will look (target API)
-
-> ⚠️ Code below is the **target shape** — packages are not published yet. See [Status](#status).
-
-### Backend — ASP.NET Core
-
+**`Program.cs`**
 ```csharp
-// Program.cs
-builder.Services.AddOmni2Fa(o => {
-    o.Issuer = "MyApp";
-    o.Smtp.Host = "smtp.example.com";
-    o.Smtp.Port = 587;
-    o.Smtp.Username = builder.Configuration["Smtp:User"];
-    o.Smtp.Password = builder.Configuration["Smtp:Pass"];
-});
-
-builder.Services.AddOmni2FaEntityFrameworkStore<AppDbContext>();
+builder.Services.AddOmni2Fa(o => builder.Configuration.GetSection("Omni2Fa").Bind(o));
+builder.Services.AddOmni2FaEntityFrameworkStore<AppDbContext>();   // or implement the store interfaces yourself
 
 var app = builder.Build();
-app.MapOmni2FaEndpoints();   // mounts /api/2fa/* on your app
+app.UseAuthentication();
+app.UseAuthorization();
+app.MapOmni2Fa();                                                  // mounts /api/2fa/*
 ```
 
-Hook the 2FA tables into your existing `DbContext`:
+**Your `DbContext`**
+```csharp
+protected override void OnModelCreating(ModelBuilder modelBuilder) {
+    base.OnModelCreating(modelBuilder);
+    modelBuilder.ApplyOmni2FaConfiguration();                      // 2FA tables (names configurable)
+}
+```
+
+Hook the **pre-auth token** into your existing login — the seam between your password check and the 2FA step:
 
 ```csharp
-public class AppDbContext : DbContext {
-    public DbSet<User> Users { get; set; }
-    // ... your entities
-
-    protected override void OnModelCreating(ModelBuilder modelBuilder) {
-        base.OnModelCreating(modelBuilder);
-        modelBuilder.ApplyOmni2FaConfiguration();
+public class AuthService(IPreAuthTokenIssuer preAuth, ITwoFactorMethodStore methods) {
+    // after you verify the password:
+    if (await methods.HasActiveMethodsAsync(userId)) {
+        var ticket = preAuth.Issue(userId);                        // short-lived JWT
+        var available = await methods.ListActiveByUserAsync(userId);
+        return Challenge(ticket.Token, ticket.ExpiresAt, available); // your DTO → frontend
     }
+    // else: mint your session as usual
+
+    // when the frontend finishes 2FA, it calls your "finalize" with the pre-auth token:
+    var verifiedUserId = preAuth.ValidateAndGetUserId(token);      // null if invalid/expired → reject
 }
 ```
 
-That's the backend side. SMTP is configured, store is plugged in, endpoints are live.
+**`appsettings.json`**
+```jsonc
+"Omni2Fa": {
+  "PreAuth":  { "SigningKey": "<32+ char HMAC key — from env/secrets>" },
+  "Totp":     { "Issuer": "MyApp" },
+  "Email":    { "FromAddress": "no-reply@myapp.com",
+                "Smtp": { "Host": "smtp.example.com", "Port": 587, "Username": "...", "Password": "...", "UseStartTls": true } },
+  "WebAuthn": { "RelyingPartyId": "myapp.com", "Origins": [ "https://myapp.com" ] }
+}
+```
 
-### Frontend — React
+That's the whole backend: endpoints, the three methods, recovery codes, rate limiting and audit are live.
 
+---
+
+## Frontend — React
+
+```bash
+npm i @omni2fa/core @omni2fa/react
+```
+
+**Once, at the app root**
 ```tsx
-import { TwoFactorSection } from '@omni2fa/react-mui';
+import { createOmni2Fa } from '@omni2fa/core';
+import { Omni2FaProvider } from '@omni2fa/react';
 
-export default function ProfilePage() {
-    return (
-        <ProfileLayout>
-            <ProfileFields />
-            <TwoFactorSection apiBaseUrl="/api/2fa" />
-        </ProfileLayout>
-    );
-}
+export const omni = createOmni2Fa({ baseUrl: '/api/2fa' });
+// after your login, hand the client your host session token (or use cookies: createOmni2Fa({ credentials: 'include' })):
+omni.client.setSessionToken(sessionToken);
+
+<Omni2FaProvider value={omni}>{children}</Omni2FaProvider>
 ```
 
-That's it. The component renders the method list, enrollment dialogs, removal flow, and login-step UI. Want to roll your own visuals? Use `@omni2fa/react` instead and compose with the headless hooks (`useEnrollTotp`, `useLoginChallenge`, etc.).
+The hooks expose state + actions; you render the UI (headless).
 
-### Mix and match
+**Login challenge**
+```tsx
+import { useChallenge } from '@omni2fa/react';
 
-Within the [officially supported stacks](#supported-stacks), pick any combination — the same React/Angular/Vue component works against any official backend (.NET, Node.js, Python), because all of them implement the same OpenAPI contract. Outside the official list, anyone can add an adapter by implementing the contract.
+const { status, context, pick, submit, useRecoveryCode } = useChallenge();
+// pick(methodId) → submit(code)  (WebAuthn auto-runs the browser ceremony)
+// status: 'idle' | 'awaitingCode' | 'asserting' | 'verifying' | 'verified' | 'failed' | …
+// on 'verified': context.userId → call your finalize endpoint
+```
 
----
-
-## Methods supported
-
-| Method            | Status      | Notes                                                       |
-|-------------------|-------------|-------------------------------------------------------------|
-| TOTP              | Planned v0.1 | Authenticator apps — Google Authenticator, Authy, 1Password |
-| Email OTP         | Planned v0.2 | Server-issued 6-digit code, sent via configured SMTP        |
-| WebAuthn          | Planned v0.3 | Passkeys & hardware keys — multiple credentials per user    |
-| Recovery codes    | Planned v0.4 | One-time backup codes, generated on first method enrollment |
-| Trusted devices   | Planned v1.3 | "Remember this browser" — skip 2FA on known devices         |
-| SMS               | v2+ (demand-driven) | Carrier cost & complexity — opt-in pluggable sender |
-
-See [`docs/ROADMAP.md`](docs/ROADMAP.md) for the full version plan, [`docs/FLOWS.md`](docs/FLOWS.md) for login/enrollment/recovery flow diagrams, [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) for the framework-agnostic core / thin adapter contract, and [`Core/protocol/`](Core/protocol/) for the OpenAPI 3.1 contract that defines every endpoint and DTO across all stacks.
+Hooks: `useMethods`, `useTotpEnrollment`, `useEmailEnrollment`, `useWebAuthnEnrollment`, `useChallenge` (+ `*Selector` variants). A full headless UI you can copy lives in [`examples/full/frontend`](examples/full/frontend). Styled drop-in components (`@omni2fa/react-mui`) are planned.
 
 ---
 
-## Supported stacks
+## Configuration (key options, under `Omni2Fa`)
 
-Official adapters are maintained and tested by the Omni2FA team. Community adapters are contributed and maintained by users — they pass the conformance test suite but receive no first-party guarantees.
-
-### Backends
-
-| Stack | Status |
-|-------|--------|
-| **.NET** — ASP.NET Core | ✅ Official, v1.0 |
-| **Node.js / TypeScript** — Express, Fastify, NestJS | 🛠 Official, v1.1 |
-| **Python** — FastAPI (Django, Flask via community adapter) | 🛠 Official, v1.2 |
-| Java / Kotlin — Spring Boot | 🤝 Community-driven, v2+ |
-| Go | 🤝 Community-driven, v2+ |
-| Anything else (PHP, Ruby, Rust, …) | 📜 Open to community PRs |
-
-### Frontends
-
-| Stack | Status |
-|-------|--------|
-| **React** | ✅ Official, v1.0 — headless hooks (`@omni2fa/react`) + ready Material UI dialogs (`@omni2fa/react-mui`) |
-| **Angular** | ✅ Official, v1.0 — headless services (`@omni2fa/angular`) |
-| **Vue** | 🛠 Official, v1.x — headless composables (`@omni2fa/vue`) |
-| Anything else (Svelte, Solid, …) | 📜 Open to community PRs |
-
-### Adding a new adapter
-
-The [OpenAPI contract](Core/protocol/omni2fa.openapi.yaml) is the only thing an adapter has to implement. From v1.0, [`docs/PORTING_GUIDE.md`](docs/PORTING_GUIDE.md) walks through:
-
-1. Generating types from the OpenAPI spec for your language.
-2. Implementing the endpoints and the conformance test suite.
-3. Submitting a PR to be listed as a community adapter (or proposed for promotion to official if maintenance commitment is realistic).
+| Option | Default | Purpose |
+|--------|---------|---------|
+| `PreAuth.SigningKey` | — (required, ≥32 chars) | HMAC key for the pre-auth ticket; validated at startup |
+| `PreAuth.Ttl` | 5 min | Pre-auth ticket lifetime |
+| `Totp.Issuer` | `Omni2FA` | Name shown in authenticator apps |
+| `Email.Smtp.*` / `Email.BackgroundDelivery` | — / `true` | SMTP transport; codes sent on a background worker by default |
+| `WebAuthn.RelyingPartyId` / `Origins` | `localhost` / `http://localhost:5173` | Must match your real hostname (HTTPS off-localhost) |
+| `WebAuthn.MaxCredentialsPerUser` | 3 | Passkey cap per user |
+| `RateLimit.{PermitLimit,Window}` | 20 / 1 min | Per-IP limit on verify/enroll endpoints |
+| `AspNetCore.AllowDisablingLastMethod` | `true` | Set `false` to forbid removing the last method |
+| EF table/column names | `Omni2Fa*` | Override via `ApplyOmni2FaConfiguration(o => …)` for migrations |
 
 ---
 
-## Built-in by design
+## Extension points (swap any piece — `TryAdd`, host wins)
 
-- 🔁 **Multi-method per user.** Mix and match — one user can have TOTP, email, and three WebAuthn credentials at once.
-- 🎟️ **Pre-auth token** (industry-standard MFA ticket) between password and 2FA verify — frontend never has to carry user identity in the URL.
-- 🧨 **Recovery codes** generated on first method enrollment, shown once, hashed at rest.
-- ⚡ **Rate limiting** out of the box — default 20 attempts/minute/IP on verify endpoints. Configurable, with a sensible-by-default brute-force ceiling that won't annoy real users.
-- 📜 **Audit sink** — optional `IOmni2FaAuditSink` interface for enrollment, verify, and recovery events. Plug into your existing audit pipeline, or skip it and we just log to `ILogger`.
-- 🌍 **i18n-ready** — email templates and UI strings translate via standard mechanisms (`IStringLocalizer<T>` on .NET, `react-i18next` on the React side).
-- 🔧 **Migration-friendly** — designed so apps with existing custom 2FA can switch without re-enrolling users. See [Migrating from your existing 2FA](#migrating-from-your-existing-2fa).
-
----
-
-## Explicitly out of scope
-
-These are **not** going into Omni2FA, even later. They belong to the host application:
-
-- **Account recovery when a user loses everything** (methods + recovery codes). This is a business decision — support ticket, admin override, trusted contact, identity proofing. Omni2FA only provides the primitive (admin can call "reset all 2FA for user X" via the API), the *policy* around it is yours.
-- **Password authentication itself.** Omni2FA layers on top of your existing login. You verify the password; we handle everything after.
-- **Session management / JWT issuance.** We return "verified, here is the user id" — your app mints its session.
-- **User management UI.** Profile/settings pages are yours; we only provide the 2FA section.
+| Interface | Replace to… |
+|-----------|-------------|
+| `IEmailSender` | send via your own infra (SendGrid/SES/relay) instead of MailKit/SMTP |
+| `IEmailMessageBuilder` | customize/localize the OTP email copy |
+| `IOmni2FaAuditSink` | forward audit events to your log/SIEM (default → `ILogger`) |
+| `ITwoFactorMethodStore` / `ITwoFactorChallengeStore` / `IRecoveryCodeStore` | use Mongo/Dapper/raw ADO instead of EF Core |
+| `IUserContextAccessor` | derive the current user id from a custom claim/header |
+| `IPreAuthTokenIssuer` | change how the pre-auth ticket is minted/validated |
+| `IWebAuthnCeremonyService` | swap the FIDO2 implementation |
 
 ---
 
-## Migrating from your existing 2FA
+## Methods & status
 
-If your app already has a custom 2FA implementation — Omni2FA is designed to absorb it cleanly:
+| Method | State |
+|--------|-------|
+| TOTP (authenticator apps) | ✅ |
+| Email OTP (SMTP) | ✅ |
+| WebAuthn (passkeys / security keys) | ✅ |
+| Recovery codes (one-time, hashed) | ✅ |
+| Rate limiting · audit sink | ✅ |
 
-- **Configurable DataProtector scope** — point Omni2FA at the same DPAPI scope you used before, and existing TOTP secrets decrypt without users re-enrolling.
-- **Configurable table and column names** — keep your existing schema names (e.g. `UserTwoFactorMethods` instead of our default `Omni2FaMethods`) via `modelBuilder.ApplyOmni2FaConfiguration(o => o.MethodsTableName = "UserTwoFactorMethods")`.
-- **Schema 1:1 with typical custom implementations** — fields like `Id`, `UserId`, `Type`, `Name`, `IsActive`, `CreatedAt`, `LastUsedAt`, `TotpSecret`, and WebAuthn columns line up directly. Data migration is a single `INSERT … SELECT` SQL.
-- **Pluggable audit, email, and persistence** — `IOmni2FaAuditSink`, `IEmailSender`, and `ITwoFactorMethodStore` plug into your existing infrastructure without forking.
-
-A step-by-step migration guide ships with v0.5 in [`docs/MIGRATION.md`](docs/MIGRATION.md).
-
----
-
-## Status
-
-🚧 **Pre-alpha — under active design.** No packages published yet. The repository is currently being scaffolded; the API examples above describe the target shape and are subject to change before v0.1.
-
-Track progress in [`docs/`](docs/) (architecture notes will land there as decisions are made).
+🚧 **Status — pre-1.0 (0.6.x).** Functionally complete for .NET + React, verified by a live end-to-end run, but young: no automated test suite yet (planned for v1.0), and WebAuthn/email not yet battle-tested across many environments. Suitable for your own apps; harden before betting a production product on it.
 
 ---
+
+## More
+
+- [`examples/full`](examples/full) — runnable ASP.NET + React + SQLite app with all methods.
+- [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) · [`docs/FLOWS.md`](docs/FLOWS.md) · [`docs/ROADMAP.md`](docs/ROADMAP.md) · [`docs/PUBLISHING.md`](docs/PUBLISHING.md)
+- [`Core/protocol/omni2fa.openapi.yaml`](Core/protocol/omni2fa.openapi.yaml) — the cross-stack contract.
 
 ## License
 
