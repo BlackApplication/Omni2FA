@@ -1,15 +1,29 @@
 <Project Sdk="Microsoft.NET.Sdk">
 
   <PropertyGroup>
+    <!-- Multi-targeted because EF Core is not binary-compatible across majors: each build binds bulk
+         APIs (e.g. ExecuteDeleteAsync) to the EF Core assemblies it compiled against. A single net8
+         DLL throws MissingMethodException when a host running EF Core 10 loads it, because the method
+         moved between RelationalQueryableExtensions versions. NuGet hands each host the matching asset.
+         The empty TargetFramework clears the solution-wide single TFM from Directory.Build.props so the
+         TargetFrameworks list takes effect. -->
+    <TargetFramework></TargetFramework>
+    <TargetFrameworks>net8.0;net10.0</TargetFrameworks>
     <PackageId>Omni2FA.AspNetCore.EntityFrameworkCore</PackageId>
     <Description>Omni2FA — Entity Framework Core store adapter. Implements ITwoFactorMethodStore and ITwoFactorChallengeStore on EF Core. Works with any relational provider (PostgreSQL, SQL Server, SQLite, MySQL, Oracle). Plug into your existing DbContext via modelBuilder.ApplyOmni2FaConfiguration().</Description>
     <PackageTags>2fa;mfa;efcore;entity-framework;persistence</PackageTags>
   </PropertyGroup>
 
-  <ItemGroup>
+  <ItemGroup Condition="'$(TargetFramework)' == 'net8.0'">
     <PackageReference Include="Microsoft.EntityFrameworkCore" Version="8.0.10" />
     <PackageReference Include="Microsoft.EntityFrameworkCore.Relational" Version="8.0.10" />
     <PackageReference Include="Microsoft.Extensions.DependencyInjection.Abstractions" Version="8.0.2" />
+  </ItemGroup>
+
+  <ItemGroup Condition="'$(TargetFramework)' == 'net10.0'">
+    <PackageReference Include="Microsoft.EntityFrameworkCore" Version="10.0.0" />
+    <PackageReference Include="Microsoft.EntityFrameworkCore.Relational" Version="10.0.0" />
+    <PackageReference Include="Microsoft.Extensions.DependencyInjection.Abstractions" Version="10.0.0" />
   </ItemGroup>
 
   <ItemGroup>

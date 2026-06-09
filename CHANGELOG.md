@@ -2,6 +2,14 @@
 
 All notable changes to Omni2FA will be documented in this file. Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); versions follow [SemVer](https://semver.org/).
 
+## [0.7.2] — 2026-06-09
+
+Patch: EF Core 10 host compatibility. .NET packages only — no API contract change, so OpenAPI stays
+at `0.7.1` and the TypeScript packages are unchanged.
+
+### Fixed
+- **EF Core 10 host compatibility (`MissingMethodException` on bulk delete)** — `Omni2FA.AspNetCore.EntityFrameworkCore` now multi-targets `net8.0;net10.0`, compiling each build against its matching EF Core major (8.0.x / 10.0.x). The previous single `net8.0` build bound `ExecuteDeleteAsync` to EF Core 8's `RelationalQueryableExtensions`; under a host running EF Core 10 that method has moved, so recovery-code wipe and challenge purge threw `MissingMethodException` at runtime. NuGet now hands each host the matching asset. `Omni2FA.Core` and `Omni2FA.AspNetCore` stay `net8.0` (consumed down-level by net10 hosts).
+
 ## [0.7.1] — 2026-06-09
 
 Closes an email-enrollment foot-gun surfaced in live integration: the OTP destination was taken
