@@ -26,8 +26,8 @@ public class EmailEnrollmentService : IEmailEnrollmentService {
         _finalizer = finalizer;
     }
 
-    public async Task<Result<EmailEnrollStartResponse>> StartAsync(string userId, EmailEnrollStartRequest request, CancellationToken cancellationToken = default) {
-        if (string.IsNullOrWhiteSpace(request.Email)) {
+    public async Task<Result<EmailEnrollStartResponse>> StartAsync(string userId, string? email, CancellationToken cancellationToken = default) {
+        if (string.IsNullOrWhiteSpace(email)) {
             return Result<EmailEnrollStartResponse>.Failure(Omni2FaErrorCodes.ValidationFailed, "An email address is required.");
         }
 
@@ -36,7 +36,7 @@ public class EmailEnrollmentService : IEmailEnrollmentService {
             return Result<EmailEnrollStartResponse>.Failure(Omni2FaErrorCodes.TypeAlreadyEnrolled);
         }
 
-        var email = request.Email.Trim();
+        email = email.Trim();
         var challenge = new TwoFactorChallenge {
             Id = Guid.NewGuid(),
             UserId = userId,

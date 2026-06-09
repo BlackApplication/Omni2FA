@@ -20,6 +20,23 @@ public class AspNetCoreOptions {
     /// </summary>
     public string UserLabelClaim { get; set; } = ClaimTypes.Email;
 
+    /// <summary>
+    /// Claim carrying the user's email address, used as the OTP destination when
+    /// <see cref="EmailEnrollmentAddressSource"/> is <see cref="Configuration.EmailEnrollmentAddressSource.ClaimOnly"/>.
+    /// Defaults to <c>ClaimTypes.Email</c>; falls back to raw JWT <c>email</c>. Kept separate from
+    /// <see cref="UserLabelClaim"/> on purpose — the label is cosmetic, whereas the OTP destination is
+    /// security-sensitive and must point at an authoritative, verified address.
+    /// </summary>
+    public string UserEmailClaim { get; set; } = ClaimTypes.Email;
+
+    /// <summary>
+    /// Where <c>POST /enroll/email/start</c> takes the OTP destination address from. Defaults to
+    /// <see cref="Configuration.EmailEnrollmentAddressSource.ClaimOnly"/> so the address is derived from
+    /// the authenticated identity and ownership is enforced for every host by default. Set to
+    /// <see cref="Configuration.EmailEnrollmentAddressSource.HostSupplied"/> to take it from the request body.
+    /// </summary>
+    public EmailEnrollmentAddressSource EmailEnrollmentAddressSource { get; set; } = EmailEnrollmentAddressSource.ClaimOnly;
+
     /// <summary>Mount point for all Omni2FA endpoints. Default <c>/api/2fa</c>.</summary>
     public string RoutePrefix { get; set; } = "/api/2fa";
 

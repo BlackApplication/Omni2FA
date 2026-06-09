@@ -14,7 +14,7 @@ export function useEmailEnrollment(): IUseEmailEnrollmentResult {
     return {
         status,
         context,
-        start: (email) => actor.send({ type: 'start', email }),
+        start: (email?: string) => actor.send({ type: 'start', email }),
         submit: (code, name) => actor.send({ type: 'submit', code, name }),
         resend: () => actor.send({ type: 'resend' }),
         reset: () => actor.send({ type: 'reset' }),

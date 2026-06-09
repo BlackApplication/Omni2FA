@@ -2,7 +2,7 @@ openapi: 3.1.0
 
 info:
   title: Omni2FA API
-  version: 0.7.0
+  version: 0.7.1
   summary: Cross-stack HTTP contract for multi-method 2FA.
   description: |
     The HTTP contract that any backend implementing Omni2FA must satisfy, and
@@ -285,9 +285,10 @@ paths:
       operationId: startEmailEnrollment
       summary: Begin Email OTP enrollment.
       description: |
-        The host supplies the destination email address — Omni2FA does not read it from a
-        claim and does not own address verification (that is the host's responsibility). The
-        server issues a one-time code, persists it as a pending enrollment, and emails it.
+        Issues a one-time code, persists it as a pending enrollment, and emails it. By default
+        (`EmailEnrollmentAddressSource = ClaimOnly`) the destination address is derived from the
+        authenticated identity and the request body is optional. Configure `HostSupplied` to take
+        the address from the request body instead, in which case the host owns address verification.
       security:
         - HostSession: []
       requestBody:
@@ -723,14 +724,15 @@ components:
 
     EmailEnrollStartRequest:
       type: object
-      required: [email]
       properties:
         email:
           type: string
           format: email
           description: |
-            Destination address the OTP is sent to, supplied by the host. Omni2FA does not
-            derive it from a claim and does not verify address ownership — that is host policy.
+            Destination address the OTP is sent to. Honored only when the server is configured with
+            `EmailEnrollmentAddressSource = HostSupplied` (the host then owns address verification).
+            Under the default `ClaimOnly` source the address is derived from the authenticated identity
+            and this field is ignored, so it is optional.
           example: 'alice@example.com'
 
     EmailEnrollStartResponse:

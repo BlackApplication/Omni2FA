@@ -412,11 +412,13 @@ export interface components {
         EmailEnrollStartRequest: {
             /**
              * Format: email
-             * @description Destination address the OTP is sent to, supplied by the host. Omni2FA does not
-             *     derive it from a claim and does not verify address ownership — that is host policy.
+             * @description Destination address the OTP is sent to. Honored only when the server is configured with
+             *     `EmailEnrollmentAddressSource = HostSupplied` (the host then owns address verification).
+             *     Under the default `ClaimOnly` source the address is derived from the authenticated identity
+             *     and this field is ignored, so it is optional.
              * @example alice@example.com
              */
-            email: string;
+            email?: string;
         };
         EmailEnrollStartResponse: {
             /**

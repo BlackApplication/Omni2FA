@@ -21,10 +21,8 @@ public class UserContextAccessor : IUserContextAccessor {
         _options = options.Value.AspNetCore;
     }
 
-    public string GetCurrentUserId() {
-        var ctx = _httpContext.HttpContext ?? throw new InvalidOperationException("No HttpContext available.");
-        var value = ctx.User.FindFirst(_options.UserIdClaim)?.Value
-            ?? ctx.User.FindFirst(JwtRegisteredClaimNames.Sub)?.Value;
+    public virtual string GetCurrentUserId() {
+        var value = FindClaimValue(_options.UserIdClaim, JwtRegisteredClaimNames.Sub);
         if (string.IsNullOrWhiteSpace(value)) {
             throw new InvalidOperationException(
                 $"No '{_options.UserIdClaim}' or 'sub' claim on the current principal. " +
@@ -34,10 +32,26 @@ public class UserContextAccessor : IUserContextAccessor {
         return value;
     }
 
-    public string GetCurrentUserLabel() {
-        var ctx = _httpContext.HttpContext ?? throw new InvalidOperationException("No HttpContext available.");
-        var value = ctx.User.FindFirst(_options.UserLabelClaim)?.Value
-            ?? ctx.User.FindFirst(JwtRegisteredClaimNames.Email)?.Value;
+    public virtual string GetCurrentUserLabel() {
+        var value = FindClaimValue(_options.UserLabelClaim, JwtRegisteredClaimNames.Email);
         return string.IsNullOrWhiteSpace(value) ? GetCurrentUserId() : value;
+    }
+
+    public virtual string GetCurrentUserEmail() {
+        var value = FindClaimValue(_options.UserEmailClaim, JwtRegisteredClaimNames.Email);
+        if (string.IsNullOrWhiteSpace(value)) {
+            throw new InvalidOperationException(
+                $"No '{_options.UserEmailClaim}' or 'email' claim on the current principal. " +
+                "Set Omni2FaOptions.AspNetCore.UserEmailClaim if your host stores the email under a different claim, " +
+                "set Omni2FaOptions.AspNetCore.EmailEnrollmentAddressSource = HostSupplied to take the address from the request body, " +
+                "or override IUserContextAccessor.GetCurrentUserEmail() to read it from a custom source.");
+        }
+        return value;
+    }
+
+    /// <summary>Reads <paramref name="primaryClaim"/> from the current principal, falling back to <paramref name="fallbackClaim"/> (raw JWT claim for hosts with <c>MapInboundClaims = false</c>).</summary>
+    private string? FindClaimValue(string primaryClaim, string fallbackClaim) {
+        var ctx = _httpContext.HttpContext ?? throw new InvalidOperationException("No HttpContext available.");
+        return ctx.User.FindFirst(primaryClaim)?.Value ?? ctx.User.FindFirst(fallbackClaim)?.Value;
     }
 }

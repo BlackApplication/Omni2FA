@@ -1,9 +1,11 @@
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Routing;
+using Microsoft.Extensions.Options;
 using Omni2FA.AspNetCore.Extensions;
 using Omni2FA.AspNetCore.Filters;
 using Omni2FA.AspNetCore.Services.Interfaces;
+using Omni2FA.Core.Configuration;
 using Omni2FA.Core.Dtos;
 using Omni2FA.Core.Services.Interfaces;
 
@@ -17,9 +19,13 @@ internal static class EnrollEmailEndpoints {
             EmailEnrollStartRequest request,
             IEmailEnrollmentService service,
             IUserContextAccessor user,
+            IOptions<Omni2FaOptions> options,
             CancellationToken cancellationToken) =>
         {
-            var result = await service.StartAsync(user.GetCurrentUserId(), request, cancellationToken).ConfigureAwait(false);
+            var email = options.Value.AspNetCore.EmailEnrollmentAddressSource == EmailEnrollmentAddressSource.HostSupplied
+                ? request.Email
+                : user.GetCurrentUserEmail();
+            var result = await service.StartAsync(user.GetCurrentUserId(), email, cancellationToken).ConfigureAwait(false);
             return result.ToHttpResult();
         })
         .RequireAuthorization()

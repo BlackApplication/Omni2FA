@@ -2,6 +2,23 @@
 
 All notable changes to Omni2FA will be documented in this file. Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); versions follow [SemVer](https://semver.org/).
 
+## [0.7.1] — 2026-06-09
+
+Closes an email-enrollment foot-gun surfaced in live integration: the OTP destination was taken
+verbatim from the request body, so every host had to remember to substitute an authoritative,
+verified address — and any host that forgot enrolled whatever the caller sent. Omni2FA now derives
+the address from the authenticated identity by default. OpenAPI moves to `0.7.1`.
+
+### Added
+- **`IUserContextAccessor.GetCurrentUserEmail()`** — resolves the current user's email from the configured `AspNetCoreOptions.UserEmailClaim` (default `ClaimTypes.Email`, falling back to the raw JWT `email` claim). Kept distinct from `UserLabelClaim` because the OTP destination is security-sensitive, not cosmetic. `UserContextAccessor` methods are now `virtual`, so a host with a non-claim source overrides this one method instead of writing endpoint glue.
+- **`AspNetCoreOptions.EmailEnrollmentAddressSource`** — `ClaimOnly` (default) derives the address from the identity; `HostSupplied` preserves the previous body-supplied behavior for hosts that legitimately enroll an address other than the signed-in one.
+
+### Changed
+- **`POST /enroll/email/start` is secure by default** — under `ClaimOnly` the body `email` is ignored and the address comes from `GetCurrentUserEmail()`. `EmailEnrollStartRequest.Email` is now optional (was required); the TS client/machine and the `useEmailEnrollment` hook's `start(email?)` accept an omitted address accordingly.
+
+### Migration
+- Hosts relying on the request-body address (e.g. a decorator that injected the user's email) can delete that glue — the default now does it. Hosts that intentionally enroll a *different* address than the identity claim must set `EmailEnrollmentAddressSource = HostSupplied`.
+
 ## [0.7.0] — 2026-06-08
 
 Compatibility release from live-integration feedback: gives hosts a clean "2FA actually passed" signal

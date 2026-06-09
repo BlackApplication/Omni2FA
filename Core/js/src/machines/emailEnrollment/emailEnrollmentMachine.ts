@@ -22,8 +22,8 @@ export function createEmailEnrollmentMachine(client: IOmni2FaClient) {
             events: {} as EmailEnrollmentEvent,
         },
         actors: {
-            startEnrollment: fromPromise(async ({ input }: { input: { email: string } }) => {
-                const result = await client.startEmailEnrollment({ email: input.email });
+            startEnrollment: fromPromise(async ({ input }: { input: { email?: string | undefined } }) => {
+                const result = await client.startEmailEnrollment(input.email !== undefined ? { email: input.email } : {});
                 if (!result.ok) {
                     throw new Omni2FaApiError(result.code, result.message, result.httpStatus, result.details ?? null);
                 }
@@ -61,15 +61,14 @@ export function createEmailEnrollmentMachine(client: IOmni2FaClient) {
             starting: {
                 entry: ({ context, event }) => {
                     if (event.type === 'start') {
-                        context.email = event.email;
+                        context.email = event.email ?? null;
                     }
                 },
                 invoke: {
                     src: 'startEnrollment',
-                    input: ({ context }) => {
-                        if (!context.email) throw new Error('no email');
-                        return { email: context.email };
-                    },
+                    // Under the server's default ClaimOnly source the address is derived from the
+                    // session, so an absent email is valid; HostSupplied callers pass one through.
+                    input: ({ context }) => ({ email: context.email ?? undefined }),
                     onDone: {
                         target: 'awaitingCode',
                         actions: ({ context, event }) => assignStartOutput(context, event.output),
