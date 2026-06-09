@@ -19,6 +19,9 @@ the address from the authenticated identity by default. OpenAPI moves to `0.7.1`
 ### Migration
 - Hosts relying on the request-body address (e.g. a decorator that injected the user's email) can delete that glue — the default now does it. Hosts that intentionally enroll a *different* address than the identity claim must set `EmailEnrollmentAddressSource = HostSupplied`.
 
+### Refactor
+- Extracted repeated store idioms into `ChallengeStoreExtensions` (`GetActiveEnrollmentAsync`, `RecordFailedAttemptAsync`, `AddAndSaveAsync`) and reused them across the Email/TOTP/WebAuthn enrollment services and the challenge service. Centralizes the "matching challenge kind" guard and the write-then-save pairs; no behavior change. `UserContextAccessor`'s three claim lookups now share a `FindClaimValue` helper.
+
 ## [0.7.0] — 2026-06-08
 
 Compatibility release from live-integration feedback: gives hosts a clean "2FA actually passed" signal

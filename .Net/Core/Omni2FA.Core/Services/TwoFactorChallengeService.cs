@@ -132,8 +132,7 @@ public class TwoFactorChallengeService : ITwoFactorChallengeService {
             EmailAddress = method.EmailAddress,
         };
         await _emailOtp.IssueAsync(challenge, method.EmailAddress, cancellationToken).ConfigureAwait(false);
-        await _challenges.AddAsync(challenge, cancellationToken).ConfigureAwait(false);
-        await _challenges.SaveChangesAsync(cancellationToken).ConfigureAwait(false);
+        await _challenges.AddAndSaveAsync(challenge, cancellationToken).ConfigureAwait(false);
 
         return Result<ChallengeStartResponse>.Success(EmailResponse(challenge));
     }
@@ -155,8 +154,7 @@ public class TwoFactorChallengeService : ITwoFactorChallengeService {
             CreatedAt = now,
             ExpiresAt = now.Add(_webAuthnTtl),
         };
-        await _challenges.AddAsync(challenge, cancellationToken).ConfigureAwait(false);
-        await _challenges.SaveChangesAsync(cancellationToken).ConfigureAwait(false);
+        await _challenges.AddAndSaveAsync(challenge, cancellationToken).ConfigureAwait(false);
 
         return Result<ChallengeStartResponse>.Success(new ChallengeStartResponse {
             Type = TwoFactorMethodType.WebAuthn,
@@ -181,8 +179,7 @@ public class TwoFactorChallengeService : ITwoFactorChallengeService {
             return false;
         }
         if (!_emailOtp.Verify(challenge, code)) {
-            await _challenges.IncrementFailedAttemptsAsync(challenge, cancellationToken).ConfigureAwait(false);
-            await _challenges.SaveChangesAsync(cancellationToken).ConfigureAwait(false);
+            await _challenges.RecordFailedAttemptAsync(challenge, cancellationToken).ConfigureAwait(false);
             return false;
         }
         await _challenges.MarkConsumedAsync(challenge, cancellationToken).ConfigureAwait(false);
@@ -206,8 +203,7 @@ public class TwoFactorChallengeService : ITwoFactorChallengeService {
         };
         var result = await _webAuthn.VerifyAssertionAsync(optionsJson, request.AssertionResponseJson, stored, cancellationToken).ConfigureAwait(false);
         if (result is null) {
-            await _challenges.IncrementFailedAttemptsAsync(challenge, cancellationToken).ConfigureAwait(false);
-            await _challenges.SaveChangesAsync(cancellationToken).ConfigureAwait(false);
+            await _challenges.RecordFailedAttemptAsync(challenge, cancellationToken).ConfigureAwait(false);
             await AuditAsync(Omni2FaAuditEventType.LoginVerifyFailed, userId, method, cancellationToken).ConfigureAwait(false);
             return Result<VerifySuccessResponse>.Failure(Omni2FaErrorCodes.WebAuthnVerificationFailed);
         }

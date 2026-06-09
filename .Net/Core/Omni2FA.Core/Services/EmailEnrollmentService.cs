@@ -44,21 +44,19 @@ public class EmailEnrollmentService : IEmailEnrollmentService {
             EmailAddress = email,
         };
         await _emailOtp.IssueAsync(challenge, email, cancellationToken).ConfigureAwait(false);
-        await _challenges.AddAsync(challenge, cancellationToken).ConfigureAwait(false);
-        await _challenges.SaveChangesAsync(cancellationToken).ConfigureAwait(false);
+        await _challenges.AddAndSaveAsync(challenge, cancellationToken).ConfigureAwait(false);
 
         return Result<EmailEnrollStartResponse>.Success(BuildResponse(challenge));
     }
 
     public async Task<Result<MethodCreatedResponse>> ConfirmAsync(string userId, EmailEnrollConfirmRequest request, CancellationToken cancellationToken = default) {
-        var challenge = await _challenges.GetActiveAsync(request.EnrollmentId, userId, cancellationToken).ConfigureAwait(false);
-        if (challenge is null || challenge.Kind != TwoFactorChallengeKind.EnrollEmail || challenge.EmailAddress is null) {
+        var challenge = await _challenges.GetActiveEnrollmentAsync(request.EnrollmentId, userId, TwoFactorChallengeKind.EnrollEmail, cancellationToken).ConfigureAwait(false);
+        if (challenge?.EmailAddress is null) {
             return Result<MethodCreatedResponse>.Failure(Omni2FaErrorCodes.ChallengeNotFound);
         }
 
         if (!_emailOtp.Verify(challenge, request.Code)) {
-            await _challenges.IncrementFailedAttemptsAsync(challenge, cancellationToken).ConfigureAwait(false);
-            await _challenges.SaveChangesAsync(cancellationToken).ConfigureAwait(false);
+            await _challenges.RecordFailedAttemptAsync(challenge, cancellationToken).ConfigureAwait(false);
             return Result<MethodCreatedResponse>.Failure(Omni2FaErrorCodes.InvalidCode);
         }
 
@@ -80,8 +78,8 @@ public class EmailEnrollmentService : IEmailEnrollmentService {
     }
 
     public async Task<Result<EmailEnrollStartResponse>> ResendAsync(string userId, EmailEnrollResendRequest request, CancellationToken cancellationToken = default) {
-        var challenge = await _challenges.GetActiveAsync(request.EnrollmentId, userId, cancellationToken).ConfigureAwait(false);
-        if (challenge is null || challenge.Kind != TwoFactorChallengeKind.EnrollEmail || challenge.EmailAddress is null) {
+        var challenge = await _challenges.GetActiveEnrollmentAsync(request.EnrollmentId, userId, TwoFactorChallengeKind.EnrollEmail, cancellationToken).ConfigureAwait(false);
+        if (challenge?.EmailAddress is null) {
             return Result<EmailEnrollStartResponse>.Failure(Omni2FaErrorCodes.ChallengeNotFound);
         }
         if (DateTime.UtcNow < _emailOtp.ResendAvailableAt(challenge)) {

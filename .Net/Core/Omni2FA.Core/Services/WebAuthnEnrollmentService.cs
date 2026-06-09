@@ -58,8 +58,7 @@ public class WebAuthnEnrollmentService : IWebAuthnEnrollmentService {
             CreatedAt = now,
             ExpiresAt = now.Add(_enrollmentTtl),
         };
-        await _challenges.AddAsync(challenge, cancellationToken).ConfigureAwait(false);
-        await _challenges.SaveChangesAsync(cancellationToken).ConfigureAwait(false);
+        await _challenges.AddAndSaveAsync(challenge, cancellationToken).ConfigureAwait(false);
 
         return Result<WebAuthnEnrollStartResponse>.Success(new WebAuthnEnrollStartResponse {
             EnrollmentId = challenge.Id,
@@ -68,8 +67,8 @@ public class WebAuthnEnrollmentService : IWebAuthnEnrollmentService {
     }
 
     public async Task<Result<MethodCreatedResponse>> ConfirmAsync(string userId, WebAuthnEnrollConfirmRequest request, CancellationToken cancellationToken = default) {
-        var challenge = await _challenges.GetActiveAsync(request.EnrollmentId, userId, cancellationToken).ConfigureAwait(false);
-        if (challenge is null || challenge.Kind != TwoFactorChallengeKind.EnrollWebAuthn || challenge.WebAuthnChallenge is null) {
+        var challenge = await _challenges.GetActiveEnrollmentAsync(request.EnrollmentId, userId, TwoFactorChallengeKind.EnrollWebAuthn, cancellationToken).ConfigureAwait(false);
+        if (challenge?.WebAuthnChallenge is null) {
             return Result<MethodCreatedResponse>.Failure(Omni2FaErrorCodes.ChallengeNotFound);
         }
 
@@ -80,8 +79,7 @@ public class WebAuthnEnrollmentService : IWebAuthnEnrollmentService {
             async (credentialId, ct) => !await _methods.WebAuthnCredentialExistsAsync(credentialId, ct).ConfigureAwait(false),
             cancellationToken).ConfigureAwait(false);
         if (credential is null) {
-            await _challenges.IncrementFailedAttemptsAsync(challenge, cancellationToken).ConfigureAwait(false);
-            await _challenges.SaveChangesAsync(cancellationToken).ConfigureAwait(false);
+            await _challenges.RecordFailedAttemptAsync(challenge, cancellationToken).ConfigureAwait(false);
             return Result<MethodCreatedResponse>.Failure(Omni2FaErrorCodes.WebAuthnVerificationFailed);
         }
 

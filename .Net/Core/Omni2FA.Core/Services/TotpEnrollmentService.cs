@@ -52,8 +52,7 @@ public class TotpEnrollmentService : ITotpEnrollmentService {
             CreatedAt = now,
             ExpiresAt = now.Add(_enrollmentTtl),
         };
-        await _challenges.AddAsync(challenge, cancellationToken).ConfigureAwait(false);
-        await _challenges.SaveChangesAsync(cancellationToken).ConfigureAwait(false);
+        await _challenges.AddAndSaveAsync(challenge, cancellationToken).ConfigureAwait(false);
 
         return Result<TotpEnrollStartResponse>.Success(new TotpEnrollStartResponse {
             EnrollmentId = challenge.Id,
@@ -63,15 +62,14 @@ public class TotpEnrollmentService : ITotpEnrollmentService {
     }
 
     public async Task<Result<MethodCreatedResponse>> ConfirmAsync(string userId, TotpEnrollConfirmRequest request, CancellationToken cancellationToken = default) {
-        var challenge = await _challenges.GetActiveAsync(request.EnrollmentId, userId, cancellationToken).ConfigureAwait(false);
-        if (challenge is null || challenge.Kind != TwoFactorChallengeKind.EnrollTotp || challenge.TotpSecretCandidate is null) {
+        var challenge = await _challenges.GetActiveEnrollmentAsync(request.EnrollmentId, userId, TwoFactorChallengeKind.EnrollTotp, cancellationToken).ConfigureAwait(false);
+        if (challenge?.TotpSecretCandidate is null) {
             return Result<MethodCreatedResponse>.Failure(Omni2FaErrorCodes.ChallengeNotFound);
         }
 
         var secret = _protector.Unprotect(challenge.TotpSecretCandidate);
         if (!_totp.ValidateCode(secret, request.Code)) {
-            await _challenges.IncrementFailedAttemptsAsync(challenge, cancellationToken).ConfigureAwait(false);
-            await _challenges.SaveChangesAsync(cancellationToken).ConfigureAwait(false);
+            await _challenges.RecordFailedAttemptAsync(challenge, cancellationToken).ConfigureAwait(false);
             return Result<MethodCreatedResponse>.Failure(Omni2FaErrorCodes.InvalidCode);
         }
 
