@@ -82,13 +82,57 @@ public class TwoFactorChallengeService : ITwoFactorChallengeService {
     }
 
     public async Task<Result<VerifySuccessResponse>> VerifyAsync(string userId, ChallengeVerifyRequest request, CancellationToken cancellationToken = default) {
+        var verified = await VerifyInternalAsync(
+            userId, request,
+            Omni2FaAuditEventType.LoginVerifySucceeded,
+            Omni2FaAuditEventType.LoginVerifyFailed,
+            cancellationToken).ConfigureAwait(false);
+        if (verified.IsFailure) {
+            return Result<VerifySuccessResponse>.Failure(verified.ErrorCode!, verified.ErrorMessage);
+        }
+
+        var handoff = _preAuth.IssueVerified(userId);
+        return Result<VerifySuccessResponse>.Success(new VerifySuccessResponse {
+            UserId = userId,
+            VerifiedToken = handoff.Token,
+            ExpiresAt = handoff.ExpiresAt,
+        });
+    }
+
+    public async Task<Result<StepUpVerifyResponse>> VerifyStepUpAsync(string userId, ChallengeVerifyRequest request, CancellationToken cancellationToken = default) {
+        var verified = await VerifyInternalAsync(
+            userId, request,
+            Omni2FaAuditEventType.StepUpVerifySucceeded,
+            Omni2FaAuditEventType.StepUpVerifyFailed,
+            cancellationToken).ConfigureAwait(false);
+        if (verified.IsFailure) {
+            return Result<StepUpVerifyResponse>.Failure(verified.ErrorCode!, verified.ErrorMessage);
+        }
+
+        var token = _preAuth.IssueStepUp(userId);
+        return Result<StepUpVerifyResponse>.Success(new StepUpVerifyResponse {
+            StepUpToken = token.Token,
+            ExpiresAt = token.ExpiresAt,
+        });
+    }
+
+    /// <summary>
+    /// Shared verification core for login and step-up: validate the picked method's code/assertion,
+    /// mark the method used, and audit. Mints no token — callers mint the kind they need.
+    /// </summary>
+    private async Task<Result> VerifyInternalAsync(
+        string userId,
+        ChallengeVerifyRequest request,
+        Omni2FaAuditEventType successEvent,
+        Omni2FaAuditEventType failEvent,
+        CancellationToken cancellationToken) {
         var method = await _methods.GetActiveAsync(request.MethodId, userId, cancellationToken).ConfigureAwait(false);
         if (method is null) {
-            return Result<VerifySuccessResponse>.Failure(Omni2FaErrorCodes.MethodNotFound);
+            return Result.Failure(Omni2FaErrorCodes.MethodNotFound);
         }
 
         if (method.Type == TwoFactorMethodType.WebAuthn) {
-            return await VerifyWebAuthnAsync(userId, method, request, cancellationToken).ConfigureAwait(false);
+            return await VerifyWebAuthnAsync(userId, method, request, successEvent, failEvent, cancellationToken).ConfigureAwait(false);
         }
 
         var verified = method.Type switch {
@@ -97,15 +141,15 @@ public class TwoFactorChallengeService : ITwoFactorChallengeService {
             _ => false,
         };
         if (!verified) {
-            await AuditAsync(Omni2FaAuditEventType.LoginVerifyFailed, userId, method, cancellationToken).ConfigureAwait(false);
-            return Result<VerifySuccessResponse>.Failure(Omni2FaErrorCodes.InvalidCode);
+            await AuditAsync(failEvent, userId, method, cancellationToken).ConfigureAwait(false);
+            return Result.Failure(Omni2FaErrorCodes.InvalidCode);
         }
 
         await _methods.MarkUsedAsync(method, cancellationToken).ConfigureAwait(false);
         await _methods.SaveChangesAsync(cancellationToken).ConfigureAwait(false);
-        await AuditAsync(Omni2FaAuditEventType.LoginVerifySucceeded, userId, method, cancellationToken).ConfigureAwait(false);
+        await AuditAsync(successEvent, userId, method, cancellationToken).ConfigureAwait(false);
 
-        return Success(userId);
+        return Result.Success();
     }
 
     private async Task<Result<ChallengeStartResponse>> StartEmailAsync(string userId, TwoFactorMethod method, CancellationToken cancellationToken) {
@@ -186,13 +230,19 @@ public class TwoFactorChallengeService : ITwoFactorChallengeService {
         return true;
     }
 
-    private async Task<Result<VerifySuccessResponse>> VerifyWebAuthnAsync(string userId, TwoFactorMethod method, ChallengeVerifyRequest request, CancellationToken cancellationToken) {
+    private async Task<Result> VerifyWebAuthnAsync(
+        string userId,
+        TwoFactorMethod method,
+        ChallengeVerifyRequest request,
+        Omni2FaAuditEventType successEvent,
+        Omni2FaAuditEventType failEvent,
+        CancellationToken cancellationToken) {
         if (request.AssertionResponseJson is null || method.WebAuthnCredentialId is null || method.WebAuthnPublicKey is null) {
-            return Result<VerifySuccessResponse>.Failure(Omni2FaErrorCodes.WebAuthnVerificationFailed);
+            return Result.Failure(Omni2FaErrorCodes.WebAuthnVerificationFailed);
         }
         var challenge = await _challenges.GetActiveLoginChallengeAsync(userId, method.Id, cancellationToken).ConfigureAwait(false);
         if (challenge is null || challenge.WebAuthnChallenge is null) {
-            return Result<VerifySuccessResponse>.Failure(Omni2FaErrorCodes.ChallengeNotFound);
+            return Result.Failure(Omni2FaErrorCodes.ChallengeNotFound);
         }
 
         var optionsJson = Encoding.UTF8.GetString(challenge.WebAuthnChallenge);
@@ -204,17 +254,17 @@ public class TwoFactorChallengeService : ITwoFactorChallengeService {
         var result = await _webAuthn.VerifyAssertionAsync(optionsJson, request.AssertionResponseJson, stored, cancellationToken).ConfigureAwait(false);
         if (result is null) {
             await _challenges.RecordFailedAttemptAsync(challenge, cancellationToken).ConfigureAwait(false);
-            await AuditAsync(Omni2FaAuditEventType.LoginVerifyFailed, userId, method, cancellationToken).ConfigureAwait(false);
-            return Result<VerifySuccessResponse>.Failure(Omni2FaErrorCodes.WebAuthnVerificationFailed);
+            await AuditAsync(failEvent, userId, method, cancellationToken).ConfigureAwait(false);
+            return Result.Failure(Omni2FaErrorCodes.WebAuthnVerificationFailed);
         }
 
         method.WebAuthnSignCount = result.SignCount;
         await _challenges.MarkConsumedAsync(challenge, cancellationToken).ConfigureAwait(false);
         await _methods.MarkUsedAsync(method, cancellationToken).ConfigureAwait(false);
         await _methods.SaveChangesAsync(cancellationToken).ConfigureAwait(false);
-        await AuditAsync(Omni2FaAuditEventType.LoginVerifySucceeded, userId, method, cancellationToken).ConfigureAwait(false);
+        await AuditAsync(successEvent, userId, method, cancellationToken).ConfigureAwait(false);
 
-        return Success(userId);
+        return Result.Success();
     }
 
     private Task AuditAsync(Omni2FaAuditEventType type, string userId, TwoFactorMethod method, CancellationToken cancellationToken) {
@@ -224,16 +274,6 @@ public class TwoFactorChallengeService : ITwoFactorChallengeService {
             MethodType = method.Type,
             MethodId = method.Id,
         }, cancellationToken);
-    }
-
-    private Result<VerifySuccessResponse> Success(string userId) {
-        var handoff = _preAuth.IssueVerified(userId);
-        return Result<VerifySuccessResponse>.Success(new VerifySuccessResponse {
-            Verified = true,
-            UserId = userId,
-            VerifiedToken = handoff.Token,
-            ExpiresAt = handoff.ExpiresAt,
-        });
     }
 
     private ChallengeStartResponse EmailResponse(TwoFactorChallenge challenge) {

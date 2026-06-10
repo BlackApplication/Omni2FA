@@ -6,6 +6,8 @@ public enum Omni2FaAuditEventType {
     MethodRemoved,
     LoginVerifySucceeded,
     LoginVerifyFailed,
+    StepUpVerifySucceeded,
+    StepUpVerifyFailed,
     RecoveryCodesGenerated,
     RecoveryCodeUsed,
     RecoveryCodesRegenerated,

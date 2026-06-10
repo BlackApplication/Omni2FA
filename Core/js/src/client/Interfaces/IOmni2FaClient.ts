@@ -10,6 +10,7 @@ import type {
     MethodCreatedResponse,
     RecoveryCodesResponse,
     RecoveryCodeVerifyRequest,
+    StepUpVerifyResponse,
     TotpEnrollConfirmRequest,
     TotpEnrollStartResponse,
     TwoFactorMethodDto,
@@ -38,6 +39,11 @@ export interface IOmni2FaClient {
     resendChallenge(request: ChallengeResendRequest): Promise<ClientCall<ChallengeStartResponse>>;
     verifyChallenge(request: ChallengeVerifyRequest): Promise<ClientCall<VerifySuccessResponse>>;
     verifyRecoveryCode(request: RecoveryCodeVerifyRequest): Promise<ClientCall<VerifySuccessResponse>>;
+
+    /** Step-up (action confirmation) for an authenticated user. Mirror the challenge flow; verify yields a single-use step-up token. */
+    startStepUp(request: ChallengeStartRequest): Promise<ClientCall<ChallengeStartResponse>>;
+    resendStepUp(request: ChallengeResendRequest): Promise<ClientCall<ChallengeStartResponse>>;
+    verifyStepUp(request: ChallengeVerifyRequest): Promise<ClientCall<StepUpVerifyResponse>>;
 
     regenerateRecoveryCodes(): Promise<ClientCall<RecoveryCodesResponse>>;
 

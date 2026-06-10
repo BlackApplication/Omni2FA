@@ -12,6 +12,7 @@ using Omni2FA.AspNetCore.Services.Interfaces;
 using Omni2FA.Core.Configuration;
 using Omni2FA.Core.Services;
 using Omni2FA.Core.Services.Interfaces;
+using Omni2FA.Core.Stores;
 using Omni2FA.AspNetCore.WebAuthn;
 
 namespace Omni2FA.AspNetCore.Extensions;
@@ -38,6 +39,12 @@ public static class ServiceCollectionExtensions {
         services.AddSingleton<ITotpService, TotpService>();
         services.AddSingleton<ISecretProtector, DataProtectionSecretProtector>();
         services.AddSingleton<IPreAuthTokenIssuer, JwtPreAuthTokenIssuer>();
+
+        // Step-up (action confirmation): single-use token replay guard defaults to in-memory; the
+        // evaluator is scoped because it reaches the host-registered (scoped) method store.
+        services.AddMemoryCache();
+        services.TryAddSingleton<IStepUpNonceStore, InMemoryStepUpNonceStore>();
+        services.AddScoped<IStepUpEvaluator, StepUpEvaluator>();
 
         services.AddScoped<ITwoFactorMethodService, TwoFactorMethodService>();
         services.AddScoped<ITotpEnrollmentService, TotpEnrollmentService>();

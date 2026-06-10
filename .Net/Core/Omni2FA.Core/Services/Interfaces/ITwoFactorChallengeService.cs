@@ -13,4 +13,11 @@ public interface ITwoFactorChallengeService {
 
     /// <summary>Final step — validate the user's code/assertion against the picked method.</summary>
     Task<Result<VerifySuccessResponse>> VerifyAsync(string userId, ChallengeVerifyRequest request, CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Step-up variant of <see cref="VerifyAsync"/> for an already-authenticated user confirming a
+    /// sensitive action. Runs the same method verification but mints a single-use step-up token
+    /// instead of the login-handoff token.
+    /// </summary>
+    Task<Result<StepUpVerifyResponse>> VerifyStepUpAsync(string userId, ChallengeVerifyRequest request, CancellationToken cancellationToken = default);
 }

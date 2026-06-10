@@ -22,7 +22,11 @@ public class JwtPreAuthTokenIssuer : IPreAuthTokenIssuer {
     /// <summary>Value of <see cref="PurposeClaim"/> for verified-handoff tokens (challenge passed).</summary>
     public const string PurposeVerifiedValue = "2fa-verified";
 
+    /// <summary>Value of <see cref="PurposeClaim"/> for step-up (action-confirmation) tokens.</summary>
+    public const string PurposeStepUpValue = "2fa-stepup";
+
     private readonly PreAuthOptions _options;
+    private readonly TimeSpan _stepUpTtl;
     private readonly SigningCredentials _signingCredentials;
     private readonly TokenValidationParameters _validationParameters;
     private readonly JwtSecurityTokenHandler _handler = new() {
@@ -34,6 +38,7 @@ public class JwtPreAuthTokenIssuer : IPreAuthTokenIssuer {
 
     public JwtPreAuthTokenIssuer(IOptions<Omni2FaOptions> options) {
         _options = options.Value.PreAuth;
+        _stepUpTtl = options.Value.StepUp.Ttl;
         var keyBytes = Encoding.UTF8.GetBytes(_options.SigningKey);
         var signingKey = new SymmetricSecurityKey(keyBytes);
         _signingCredentials = new SigningCredentials(signingKey, SecurityAlgorithms.HmacSha256);
@@ -49,15 +54,38 @@ public class JwtPreAuthTokenIssuer : IPreAuthTokenIssuer {
         };
     }
 
-    public PreAuthTokenInfo Issue(string userId) => Mint(userId, PurposeValue, _options.Ttl);
+    public PreAuthTokenInfo Issue(string userId) => CreateSignedToken(userId, PurposeValue, _options.Ttl);
 
-    public PreAuthTokenInfo IssueVerified(string userId) => Mint(userId, PurposeVerifiedValue, _options.VerifiedTtl);
+    public PreAuthTokenInfo IssueVerified(string userId) => CreateSignedToken(userId, PurposeVerifiedValue, _options.VerifiedTtl);
+
+    public PreAuthTokenInfo IssueStepUp(string userId) => CreateSignedToken(userId, PurposeStepUpValue, _stepUpTtl);
 
     public string? ValidateAndGetUserId(string token) => Validate(token, PurposeValue);
 
     public string? ValidateVerified(string token) => Validate(token, PurposeVerifiedValue);
 
-    private PreAuthTokenInfo Mint(string userId, string purpose, TimeSpan ttl) {
+    public StepUpTokenClaims? ValidateStepUp(string token) {
+        if (string.IsNullOrWhiteSpace(token)) {
+            return null;
+        }
+        try {
+            var principal = _handler.ValidateToken(token, _validationParameters, out var validated);
+            if (principal.FindFirst(PurposeClaim)?.Value != PurposeStepUpValue) {
+                return null;
+            }
+            var sub = principal.FindFirst(JwtRegisteredClaimNames.Sub)?.Value;
+            var jti = principal.FindFirst(JwtRegisteredClaimNames.Jti)?.Value;
+            if (string.IsNullOrWhiteSpace(sub) || string.IsNullOrWhiteSpace(jti)) {
+                return null;
+            }
+            return new StepUpTokenClaims(sub, jti, validated.ValidTo);
+        } catch {
+            return null;
+        }
+    }
+
+    /// <summary>Build, sign, and encode a JWT for the user carrying the given purpose claim and lifetime.</summary>
+    private PreAuthTokenInfo CreateSignedToken(string userId, string purpose, TimeSpan ttl) {
         if (string.IsNullOrWhiteSpace(userId)) {
             throw new ArgumentException("userId must not be empty.", nameof(userId));
         }

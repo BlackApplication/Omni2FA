@@ -59,7 +59,6 @@ public class RecoveryCodeService : IRecoveryCodeService {
         // Same verified-handoff token as method verify — recovery-code login isn't a special case for the host.
         var handoff = _preAuth.IssueVerified(userId);
         return Result<VerifySuccessResponse>.Success(new VerifySuccessResponse {
-            Verified = true,
             UserId = userId,
             VerifiedToken = handoff.Token,
             ExpiresAt = handoff.ExpiresAt,

@@ -73,6 +73,11 @@ This file is the **stable contract**. Adding a new code is a minor version bump;
 **Meaning:** Recovery code matched a hash but the code was already marked as used. Available from v0.4 onward.
 **Frontend action:** Show explanation. Recovery codes are one-time use — direct user to regenerate codes after current login.
 
+### `STEP_UP_REQUIRED`
+**HTTP:** 403
+**Meaning:** A step-up-protected action was attempted, the user has at least one active 2FA method, and no valid, unused step-up token was presented. `details.availableMethods` lists the methods to confirm with; `details.stepUpPath` is where the step-up challenge lives. Users with no 2FA enrolled are not blocked.
+**Frontend action:** Run a step-up challenge (`/stepup/start` → `/stepup/verify`), then retry the original request with the `X-Omni2FA-StepUp` header. The `useStepUp` hook's `confirmTwoFactor(methods)` runs the challenge and yields the single-use token; your own request layer detects the 403 and replays with the header.
+
 ### `TOO_MANY_ATTEMPTS`
 **HTTP:** 429
 **Meaning:** Rate limit exceeded. Default policy: 20 attempts per minute per IP on verify endpoints.
@@ -96,6 +101,7 @@ This file is the **stable contract**. Adding a new code is a minor version bump;
 |------|-------|
 | **400 Bad Request** | `VALIDATION_FAILED` |
 | **401 Unauthorized** | `INVALID_CODE`, `PREAUTH_EXPIRED`, `PREAUTH_INVALID`, `CHALLENGE_CONSUMED`, `RECOVERY_CODE_INVALID`, `RECOVERY_CODE_USED`, `WEBAUTHN_VERIFICATION_FAILED` |
+| **403 Forbidden** | `STEP_UP_REQUIRED` |
 | **404 Not Found** | `CHALLENGE_NOT_FOUND`, `METHOD_NOT_FOUND` |
 | **409 Conflict** | `TYPE_ALREADY_ENROLLED`, `LAST_METHOD_PROTECTED`, `MAX_METHODS_REACHED` |
 | **429 Too Many Requests** | `TOO_MANY_ATTEMPTS` |

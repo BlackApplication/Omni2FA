@@ -21,6 +21,10 @@ export { useChallenge } from './hooks/useChallenge';
 export { useChallengeSelector } from './hooks/useChallengeSelector';
 export type { IUseChallengeResult, ChallengeStatus } from './Interfaces/IUseChallengeResult';
 
+export { useStepUp } from './hooks/useStepUp';
+export { useStepUpSelector } from './hooks/useStepUpSelector';
+export type { IUseStepUpResult, StepUpStatus } from './Interfaces/IUseStepUpResult';
+
 export { useMethods } from './hooks/useMethods';
 export { useMethodsSelector } from './hooks/useMethodsSelector';
 export type { IUseMethodsOptions } from './Interfaces/IUseMethodsOptions';

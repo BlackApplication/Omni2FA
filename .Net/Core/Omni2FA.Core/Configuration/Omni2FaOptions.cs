@@ -29,6 +29,9 @@ public class Omni2FaOptions {
     /// <summary>Pre-auth token settings — signing key, issuer, audience, TTL.</summary>
     public PreAuthOptions PreAuth { get; set; } = new();
 
+    /// <summary>Step-up (action-confirmation) settings — token lifetime and request header.</summary>
+    public StepUpOptions StepUp { get; set; } = new();
+
     /// <summary>Settings consumed by the ASP.NET Core adapter — claim names, route prefix, enrollment TTL.</summary>
     public AspNetCoreOptions AspNetCore { get; set; } = new();
 }

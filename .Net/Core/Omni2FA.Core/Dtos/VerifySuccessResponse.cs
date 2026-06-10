@@ -5,9 +5,6 @@ namespace Omni2FA.Core.Dtos;
 /// forwards <see cref="VerifiedToken"/> to the host's finalize endpoint to mint the session.
 /// </summary>
 public class VerifySuccessResponse {
-    /// <summary>Always <c>true</c> on this response. Failures use <c>4xx</c> with an error envelope.</summary>
-    public required bool Verified { get; init; }
-
     /// <summary>Verified user's id. Informational only — the host derives the user from <see cref="VerifiedToken"/>, not this.</summary>
     public required string UserId { get; init; }
 

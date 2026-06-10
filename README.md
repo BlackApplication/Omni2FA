@@ -74,7 +74,7 @@ public class AuthService(IPreAuthTokenIssuer preAuth, ITwoFactorMethodStore meth
 | `PreAuthTokenInfo` | returned by `Issue` / `IssueVerified` — `{ Token, ExpiresAt }` |
 | `PreAuthChallengeResponse` | your login response when 2FA is required — `{ PreAuthToken, AvailableMethods, ExpiresAt }` |
 | `TwoFactorMethodDto` | shape of an enrolled method (`AvailableMethods` items) |
-| `VerifySuccessResponse` | the `/challenge/verify` body — `{ Verified, UserId, VerifiedToken, ExpiresAt }` |
+| `VerifySuccessResponse` | the `/challenge/verify` body — `{ UserId, VerifiedToken, ExpiresAt }` |
 | `ErrorResponse` + `Omni2FaErrorCodes` | error envelope and the stable error-code constants |
 
 **`appsettings.json`**
@@ -126,6 +126,56 @@ Hooks: `useMethods`, `useTotpEnrollment`, `useEmailEnrollment`, `useWebAuthnEnro
 
 ---
 
+## Step-up — confirm sensitive actions
+
+Force a fresh 2FA check right before a sensitive action (change password, view recovery codes, remove a method). Decorate the endpoint: if the user has 2FA enrolled they must confirm it; if they don't, the call passes through. A stolen session alone can't perform the action.
+
+**Backend** — one attribute on an MVC action, or `.RequireStepUp()` on a minimal-API endpoint:
+```csharp
+[HttpPost("change-password")]
+[RequireTwoFactor]                         // → 403 STEP_UP_REQUIRED until a valid step-up token is sent
+public Task<IActionResult> ChangePassword(ChangePasswordRequest req) { … }
+
+// minimal API:
+app.MapPost("/account/email", ChangeEmail).RequireAuthorization().RequireStepUp();
+```
+
+**Frontend** — `useStepUp()` gives you `confirmTwoFactor(methods)`: it shows the 2FA prompt and resolves a single-use token (or `null` if cancelled). You attach that token in the `X-Omni2FA-StepUp` header on your request — over fetch or axios, cookie or Bearer session; the library never touches your transport. Two ways to use it:
+
+**Reactive** — let the server tell you. Best in one central place (an axios/fetch interceptor, right next to your `401` handling) — covers every protected endpoint at once:
+```tsx
+import { STEP_UP_HEADER, Omni2FaErrorCodes } from '@omni2fa/core';
+
+// in your response interceptor, when a call returns 403:
+const err = await res.clone().json();
+if (err.code === Omni2FaErrorCodes.StepUpRequired) {
+  const token = await confirmTwoFactor(err.details.availableMethods);
+  if (token) res = await replayRequest({ [STEP_UP_HEADER]: token });   // retry with the header
+}
+```
+
+**Proactive** — when you already know an action needs 2FA, confirm up-front and skip the 403 round-trip. You supply the methods yourself (e.g. from `useMethods()`):
+```tsx
+const { confirmTwoFactor } = useStepUp();
+const { items: methods } = useMethods();
+
+async function changePassword() {
+  let headers = {};
+  if (methods.length > 0) {                       // no 2FA enrolled → nothing to confirm, server lets it through
+    const token = await confirmTwoFactor(methods);
+    if (!token) return;                           // cancelled
+    headers = { [STEP_UP_HEADER]: token };
+  }
+  await api.changePassword(body, headers);        // sent already carrying the token
+}
+```
+
+While a prompt is `active`, render the 2FA UI (reuse your challenge UI): `methods` → `pick(id)` → `submit(code)`.
+
+The step-up token is **single-use** — one confirmed 2FA per protected action. Consumed token ids are kept **in memory by default**, so on a multi-instance deployment a token spent on one node isn't known to the others — a brief replay window within the token TTL. Register a shared `IStepUpNonceStore` (e.g. Redis) to close it. Details in [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md).
+
+---
+
 ## Configuration (key options, under `Omni2Fa`)
 
 | Option | Default | Purpose |
@@ -133,6 +183,7 @@ Hooks: `useMethods`, `useTotpEnrollment`, `useEmailEnrollment`, `useWebAuthnEnro
 | `PreAuth.SigningKey` | — (required, ≥32 chars) | HMAC key for the pre-auth ticket; validated at startup |
 | `PreAuth.Ttl` | 5 min | Pre-auth ticket lifetime |
 | `PreAuth.VerifiedTtl` | 2 min | Verified-handoff token lifetime (the finalize proof) |
+| `StepUp.Ttl` | 5 min | Step-up token lifetime — gap allowed between confirming 2FA and the action |
 | `Totp.Issuer` | `Omni2FA` | Name shown in authenticator apps |
 | `Email.Smtp.*` / `Email.BackgroundDelivery` | — / `true` | SMTP transport; codes sent on a background worker by default |
 | `WebAuthn.RelyingPartyId` / `Origins` | `localhost` / `http://localhost:5173` | Must match your real hostname (HTTPS off-localhost) |
@@ -152,6 +203,7 @@ Hooks: `useMethods`, `useTotpEnrollment`, `useEmailEnrollment`, `useWebAuthnEnro
 | `IOmni2FaAuditSink` | forward audit events to your log/SIEM (default → `ILogger`) |
 | `ITwoFactorMethodStore` / `ITwoFactorChallengeStore` / `IRecoveryCodeStore` | use Mongo/Dapper/raw ADO instead of EF Core |
 | `IUserContextAccessor` | derive the current user id from a custom claim/header |
+| `IStepUpNonceStore` | share single-use step-up token ids across instances (Redis/DB) — default is in-memory |
 | `IPreAuthTokenIssuer` | change how the pre-auth ticket is minted/validated |
 | `IWebAuthnCeremonyService` | swap the FIDO2 implementation |
 

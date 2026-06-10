@@ -42,6 +42,13 @@ export type { MethodsActor, MethodsMachine } from './machines/methods/methodsMac
 export type { MethodsContext } from './machines/methods/MethodsContext';
 export type { MethodsEvent } from './machines/methods/MethodsEvent';
 
+export { createStepUpMachine } from './machines/stepup/stepUpMachine';
+export type { StepUpActor, StepUpMachine } from './machines/stepup/stepUpMachine';
+export type { StepUpContext } from './machines/stepup/StepUpContext';
+export type { StepUpEvent } from './machines/stepup/StepUpEvent';
+
+export { STEP_UP_HEADER } from './stepup/constants';
+
 export { createOmni2Fa } from './createOmni2Fa';
 export type { IOmni2Fa } from './Interfaces/IOmni2Fa';
 
@@ -59,6 +66,7 @@ export type {
     PreAuthChallengeResponse,
     TotpEnrollConfirmRequest,
     TotpEnrollStartResponse,
+    StepUpVerifyResponse,
     TwoFactorMethodDto,
     TwoFactorMethodType,
     VerifySuccessResponse,

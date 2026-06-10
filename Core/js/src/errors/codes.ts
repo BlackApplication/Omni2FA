@@ -13,6 +13,7 @@ export const Omni2FaErrorCodes = {
     RecoveryCodeUsed: 'RECOVERY_CODE_USED',
     WebAuthnVerificationFailed: 'WEBAUTHN_VERIFICATION_FAILED',
     ValidationFailed: 'VALIDATION_FAILED',
+    StepUpRequired: 'STEP_UP_REQUIRED',
     NetworkError: 'NETWORK_ERROR',
     Unknown: 'UNKNOWN',
 } as const;

@@ -1,6 +1,7 @@
 import { AppBar, Box, Button, Card, CardContent, Container, Stack, Toolbar, Typography } from '@mui/material';
 import { useAuth } from '../auth/useAuth';
 import { TwoFactorSection } from '../components/TwoFactorSection';
+import { ChangePasswordCard } from '../components/ChangePasswordCard';
 
 export function ProfilePage() {
     const { session, logout } = useAuth();
@@ -25,6 +26,8 @@ export function ProfilePage() {
                     </Card>
 
                     <TwoFactorSection />
+
+                    <ChangePasswordCard />
                 </Stack>
             </Container>
         </Box>

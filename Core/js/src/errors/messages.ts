@@ -15,6 +15,7 @@ const defaults: Record<Omni2FaErrorCode, string> = {
     [Omni2FaErrorCodes.RecoveryCodeUsed]: 'This recovery code has already been used.',
     [Omni2FaErrorCodes.WebAuthnVerificationFailed]: 'Security key verification failed.',
     [Omni2FaErrorCodes.ValidationFailed]: 'The request was malformed.',
+    [Omni2FaErrorCodes.StepUpRequired]: 'Please confirm two-factor authentication to continue.',
     [Omni2FaErrorCodes.NetworkError]: 'Network error. Please check your connection.',
     [Omni2FaErrorCodes.Unknown]: 'An unexpected error occurred.',
 };

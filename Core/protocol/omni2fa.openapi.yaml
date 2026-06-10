@@ -2,7 +2,7 @@ openapi: 3.1.0
 
 info:
   title: Omni2FA API
-  version: 0.7.1
+  version: 0.7.3
   summary: Cross-stack HTTP contract for multi-method 2FA.
   description: |
     The HTTP contract that any backend implementing Omni2FA must satisfy, and
@@ -57,6 +57,13 @@ tags:
       Login flow steps after the host has verified the user's password.
       All endpoints in this tag require a pre-auth token (issued by the host
       via the server-side helper `IPreAuthTokenIssuer.IssueAsync(userId)`).
+  - name: stepup
+    description: |
+      Step-up (action confirmation) for an already-authenticated user. Re-confirms 2FA right before
+      a sensitive action (change password, view recovery codes, remove a method). Requires a full host
+      session; verify mints a single-use step-up token presented in the `X-Omni2FA-StepUp` header on
+      the protected request. If the user has no 2FA enrolled there is nothing to confirm — protected
+      endpoints let the request through.
   - name: enroll-totp
     description: Enroll a TOTP authenticator (Google Authenticator, Authy, 1Password, …).
   - name: enroll-email
@@ -269,6 +276,114 @@ paths:
           $ref: '#/components/responses/BadRequest'
         '401':
           description: Code invalid, pre-auth invalid/expired, or challenge consumed/missing.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+
+  # ------------------------------------------------------------------
+  #  stepup — action confirmation (host session required)
+  # ------------------------------------------------------------------
+  /stepup/start:
+    post:
+      tags: [stepup]
+      operationId: startStepUp
+      summary: Start a step-up challenge for the current user and a chosen method.
+      description: |
+        Mirrors `/challenge/start`, but for an already-authenticated user confirming a sensitive
+        action. The user is resolved from the host session, not a pre-auth token. Response shape is
+        method-specific, identical to the login challenge.
+      security:
+        - HostSession: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ChallengeStartRequest'
+      responses:
+        '200':
+          description: Challenge prepared. Response shape depends on method type.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ChallengeStartResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          description: Method not found, or does not belong to current user.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+
+  /stepup/resend:
+    post:
+      tags: [stepup]
+      operationId: resendStepUp
+      summary: Re-send the step-up OTP for a delivery-based method (Email).
+      security:
+        - HostSession: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ChallengeResendRequest'
+      responses:
+        '200':
+          description: A fresh code was sent (or the previous one re-sent).
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ChallengeStartResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          description: No active step-up challenge for the given method under the current user.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+
+  /stepup/verify:
+    post:
+      tags: [stepup]
+      operationId: verifyStepUp
+      summary: Verify the step-up response and mint a single-use step-up token.
+      description: |
+        Final step of action confirmation. On success returns a single-use `stepUpToken` that the
+        frontend attaches in the `X-Omni2FA-StepUp` header when retrying the protected request. The
+        token satisfies exactly one protected call.
+      security:
+        - HostSession: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ChallengeVerifyRequest'
+      responses:
+        '200':
+          description: Step-up confirmation succeeded.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/StepUpVerifyResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          description: Code invalid, session invalid, or challenge consumed/missing.
           content:
             application/json:
               schema:
@@ -699,11 +814,8 @@ components:
 
     VerifySuccessResponse:
       type: object
-      required: [verified, userId, verifiedToken, expiresAt]
+      required: [userId, verifiedToken, expiresAt]
       properties:
-        verified:
-          type: boolean
-          description: Always `true` on this response. Failures use `4xx` with `ErrorResponse`.
         userId:
           type: string
           maxLength: 64
@@ -719,6 +831,21 @@ components:
           type: string
           format: date-time
           description: When `verifiedToken` expires (UTC).
+
+    StepUpVerifyResponse:
+      type: object
+      required: [stepUpToken, expiresAt]
+      description: |
+        Returned by `/stepup/verify` on success. `stepUpToken` is single-use — attach it in the
+        `X-Omni2FA-StepUp` header when retrying the protected request; it satisfies exactly one call.
+      properties:
+        stepUpToken:
+          type: string
+          description: Single-use proof the step-up challenge passed, presented in the step-up request header.
+        expiresAt:
+          type: string
+          format: date-time
+          description: When `stepUpToken` expires (UTC).
 
     # --- Email enrollment ---
 

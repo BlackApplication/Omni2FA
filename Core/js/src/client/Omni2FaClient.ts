@@ -17,6 +17,7 @@ import type {
     MethodCreatedResponse,
     RecoveryCodesResponse,
     RecoveryCodeVerifyRequest,
+    StepUpVerifyResponse,
     TotpEnrollConfirmRequest,
     TotpEnrollStartResponse,
     TwoFactorMethodDto,
@@ -165,6 +166,21 @@ export class Omni2FaClient implements IOmni2FaClient {
 
     async verifyRecoveryCode(request: RecoveryCodeVerifyRequest): Promise<ClientCall<VerifySuccessResponse>> {
         const { data, error, response } = await this.inner.POST('/challenge/recovery-code', { body: request });
+        return this.toCall(data, error, response);
+    }
+
+    async startStepUp(request: ChallengeStartRequest): Promise<ClientCall<ChallengeStartResponse>> {
+        const { data, error, response } = await this.inner.POST('/stepup/start', { body: request });
+        return this.toCall(data, error, response);
+    }
+
+    async resendStepUp(request: ChallengeResendRequest): Promise<ClientCall<ChallengeStartResponse>> {
+        const { data, error, response } = await this.inner.POST('/stepup/resend', { body: request });
+        return this.toCall(data, error, response);
+    }
+
+    async verifyStepUp(request: ChallengeVerifyRequest): Promise<ClientCall<StepUpVerifyResponse>> {
+        const { data, error, response } = await this.inner.POST('/stepup/verify', { body: request });
         return this.toCall(data, error, response);
     }
 

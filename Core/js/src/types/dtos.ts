@@ -27,3 +27,4 @@ export type RecoveryCodeVerifyRequest = Schemas['RecoveryCodeVerifyRequest'];
 export type TwoFactorMethodDto = Schemas['TwoFactorMethodDto'];
 export type TwoFactorMethodType = Schemas['TwoFactorMethodType'];
 export type VerifySuccessResponse = Schemas['VerifySuccessResponse'];
+export type StepUpVerifyResponse = Schemas['StepUpVerifyResponse'];

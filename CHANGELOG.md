@@ -2,6 +2,22 @@
 
 All notable changes to Omni2FA will be documented in this file. Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); versions follow [SemVer](https://semver.org/).
 
+## [0.7.3] — 2026-06-10
+
+Adds **step-up authentication** — a strict, single-use 2FA confirmation gate for sensitive actions
+(change password, view recovery codes, remove a method), independent of the login flow. OpenAPI moves
+to `0.7.3`; the .NET and all TypeScript packages bump to match.
+
+### Added
+- **Step-up barrier (.NET)** — `[RequireTwoFactor]` (MVC action filter) and `.RequireStepUp()` (minimal-API endpoint filter) gate any endpoint: an enrolled user must present a valid step-up token or the call returns `403 STEP_UP_REQUIRED` (carrying the available methods); a user with no 2FA passes through. The decision lives once in `Omni2FA.Core`'s `IStepUpEvaluator`. New `/api/2fa/stepup/start|resend|verify` endpoints (session-authenticated mirrors of `/challenge/*`); `verify` mints a single-use step-up token (`purpose=2fa-stepup`) via the new `IPreAuthTokenIssuer.IssueStepUp` / `ValidateStepUp`. New `StepUp.Ttl` + header-name options.
+- **Single-use enforcement** — `IStepUpNonceStore` records spent token ids until expiry; default `InMemoryStepUpNonceStore` is single-instance (register a shared store, e.g. Redis, for multi-node — otherwise a token spent on one node has a replay window on the others bounded by the TTL). The token is bound to the caller, so a stolen token can't be replayed against another account.
+- **Step-up (`@omni2fa/core`)** — `client.startStepUp` / `resendStepUp` / `verifyStepUp`, the `stepUpMachine`, the `STEP_UP_HEADER` constant, and the `STEP_UP_REQUIRED` error code. Transport-agnostic by design — the library never makes the protected request, so cookie- and Bearer-session hosts integrate identically.
+- **Step-up (`@omni2fa/react`)** — `useStepUp()` returning `confirmTwoFactor(methods)` (shows the prompt, resolves a single-use token) plus the prompt state (`active`, `methods`, `status`, `pick`/`submit`/`resend`/`cancel`); reuses the existing challenge UI. The host detects `403 STEP_UP_REQUIRED` and replays the request with the header in its own fetch/axios layer.
+
+### Changed
+- `ITwoFactorChallengeService` gains `VerifyStepUpAsync`; login and step-up share one verification core (no behavior change to login).
+- Docs (`README`, `ARCHITECTURE`, `FLOWS`, `ASPNETCORE`, `ERROR_CODES`) and the `examples/full` host (a step-up-protected `POST /user/change-password`) updated.
+
 ## [0.7.2] — 2026-06-09
 
 Patch: EF Core 10 host compatibility. .NET packages only — no API contract change, so OpenAPI stays

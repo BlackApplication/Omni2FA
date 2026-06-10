@@ -284,7 +284,22 @@ Anything that could collide with a host's existing state must be configurable vi
 
 **The test for "is this configurable enough?"** is migrating an existing custom 2FA implementation onto Omni2FA. Any host already running a hand-rolled 2FA should be able to plug Omni2FA in without modifying its database schema or rewriting business code — only adjusting `Omni2FaOptions` and EF mapping. Anything that requires touching Omni2FA source code instead of just config — that's a missing option.
 
-## 9. Why this matters
+## 9. Step-up (action confirmation)
+
+Step-up re-confirms 2FA immediately before a sensitive action (change password, view recovery codes, remove a method), independent of the login flow. It follows the same core/adapter split as everything else.
+
+**Where the logic lives**
+
+- `Omni2FA.Core` owns the decision. `IStepUpEvaluator` takes the authenticated user id plus the presented token and returns a verdict — `Satisfied` (valid, single-use token consumed → allow), `NotEnrolledBypass` (user has no active method → allow), or `Required` (block). Token mint/validate is `IPreAuthTokenIssuer.IssueStepUp` / `ValidateStepUp`, carrying purpose `2fa-stepup` — distinct from the login `2fa-pending` / `2fa-verified`, so the three token kinds can never substitute for one another. The same `ITwoFactorChallengeService` verifies the code: `VerifyStepUpAsync` reuses the login verification core and only swaps which token it mints.
+- `Omni2FA.AspNetCore` holds the thin adapters. `[RequireTwoFactor]` (MVC action filter) and `.RequireStepUp()` (minimal-API endpoint filter) both just read the header + current user and delegate to the evaluator; on `Required` they emit `403 STEP_UP_REQUIRED` with the available methods. The `/stepup/start|resend|verify` endpoints are session-authenticated mirrors of `/challenge/*`.
+
+**Stateless transport + single use.** The proof is a short-lived signed JWT carried in `X-Omni2FA-StepUp` — no server lookup to validate it. It is bound to the user (the evaluator rejects a token whose subject ≠ the caller, so a stolen token cannot be replayed against another account) and consumed exactly once via `IStepUpNonceStore`, which records spent token ids until their expiry. The default `InMemoryStepUpNonceStore` is **single-instance**: across multiple nodes a token spent on one is not seen by the others, leaving a replay window bounded by the token TTL. Hosts running more than one instance register a shared `IStepUpNonceStore` (Redis/DB) to close it — the same pluggability pattern as the stores.
+
+**Not weakenable by design.** There is no option to bypass an enrolled user; the only pass-through is "no method enrolled", which is intrinsic to the feature. The single configurable surface is `StepUp.Ttl` and the header name.
+
+---
+
+## 10. Why this matters
 
 A common failure mode for "universal" libraries: framework adapter v1 accidentally absorbs business logic ("just a quick if for Email"), and by the time someone tries to add Vue support, half the FSM lives in React hooks. Porting then means rewriting, not wrapping.
 
@@ -294,7 +309,7 @@ This document is the contract for that choice.
 
 ---
 
-## 10. Change log
+## 11. Change log
 
 - **2026-05-20** — initial draft from session 1. Captures the framework-agnostic core / thin adapter principle as a binding rule, with boundary map, code review checklist, and dependency graph.
 - **2026-05-20** — `.NET` physical layout updated to mirror the boundary: `Omni2FA.Core` and `Omni2FA.WebAuthn` moved from `.Net/src/` to `.Net/Core/`. `.Net/src/` now holds only ASP.NET-coupled adapters. `Omni2FA.sln` lives in `.Net/` root, references both folders. Rationale: makes the framework-agnostic boundary visible at the path level during code review.
@@ -303,3 +318,4 @@ This document is the contract for that choice.
 - **2026-05-21** — pre-auth token transport principle recorded in section 7: Bearer-only by design through v1.x, opt-in cookie transport scheduled for v1.6 as a parallel option (not a replacement). Rationale: Bearer requires zero host config, behaves identically across every backend adapter, and keeps the OpenAPI contract free of cookie-policy concerns that belong to the host's session strategy.
 - **2026-06-08** — the standalone `Omni2FA.WebAuthn` package was folded into `Omni2FA.AspNetCore` (.NET drops from 4 to 3 packages). WebAuthn is a first-class 2FA method every ASP.NET host receives anyway; a separate package was speculative future-proofing (swappable crypto lib) that no consumer needed. The `IWebAuthnCeremonyService` contract stays in `Omni2FA.Core`, so the core remains FIDO2-free — only the Fido2NetLib implementation moved into the adapter. Section 6 updated to match.
 - **2026-06-08** — added binding UI-customization principles to section 2 (styled packages): composable pieces (not a monolith), slot/`sx`/theme overrides on every part, no baked-in copy, and the three-tier model (hooks → headless-structural → styled skins). Styled packages must be adaptable to the host's ecosystem, not take-it-or-leave-it.
+- **2026-06-10** — added section 9 "Step-up (action confirmation)" for the v0.7.3 step-up feature: core `IStepUpEvaluator` and the `2fa-stepup` token purpose, ASP.NET `[RequireTwoFactor]` / `.RequireStepUp()` filters and `/stepup/*` endpoints, and single-use enforcement via `IStepUpNonceStore` (in-memory default, pluggable for multi-instance). "Why this matters" renumbered to 10, change log to 11.

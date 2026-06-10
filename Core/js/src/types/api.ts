@@ -140,6 +140,67 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/stepup/start": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Start a step-up challenge for the current user and a chosen method.
+         * @description Mirrors `/challenge/start`, but for an already-authenticated user confirming a sensitive
+         *     action. The user is resolved from the host session, not a pre-auth token. Response shape is
+         *     method-specific, identical to the login challenge.
+         */
+        post: operations["startStepUp"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/stepup/resend": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Re-send the step-up OTP for a delivery-based method (Email). */
+        post: operations["resendStepUp"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/stepup/verify": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Verify the step-up response and mint a single-use step-up token.
+         * @description Final step of action confirmation. On success returns a single-use `stepUpToken` that the
+         *     frontend attaches in the `X-Omni2FA-StepUp` header when retrying the protected request. The
+         *     token satisfies exactly one protected call.
+         */
+        post: operations["verifyStepUp"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/enroll/email/start": {
         parameters: {
             query?: never;
@@ -151,9 +212,10 @@ export interface paths {
         put?: never;
         /**
          * Begin Email OTP enrollment.
-         * @description The host supplies the destination email address — Omni2FA does not read it from a
-         *     claim and does not own address verification (that is the host's responsibility). The
-         *     server issues a one-time code, persists it as a pending enrollment, and emails it.
+         * @description Issues a one-time code, persists it as a pending enrollment, and emails it. By default
+         *     (`EmailEnrollmentAddressSource = ClaimOnly`) the destination address is derived from the
+         *     authenticated identity and the request body is optional. Configure `HostSupplied` to take
+         *     the address from the request body instead, in which case the host owns address verification.
          */
         post: operations["startEmailEnrollment"];
         delete?: never;
@@ -391,8 +453,6 @@ export interface components {
             assertionResponseJson?: string | null;
         };
         VerifySuccessResponse: {
-            /** @description Always `true` on this response. Failures use `4xx` with `ErrorResponse`. */
-            verified: boolean;
             /**
              * @description Verified user's id, stringified. Informational only — the host derives the user
              *     from `verifiedToken`, not this (the client could otherwise claim any id).
@@ -406,6 +466,19 @@ export interface components {
             /**
              * Format: date-time
              * @description When `verifiedToken` expires (UTC).
+             */
+            expiresAt: string;
+        };
+        /**
+         * @description Returned by `/stepup/verify` on success. `stepUpToken` is single-use — attach it in the
+         *     `X-Omni2FA-StepUp` header when retrying the protected request; it satisfies exactly one call.
+         */
+        StepUpVerifyResponse: {
+            /** @description Single-use proof the step-up challenge passed, presented in the step-up request header. */
+            stepUpToken: string;
+            /**
+             * Format: date-time
+             * @description When `stepUpToken` expires (UTC).
              */
             expiresAt: string;
         };
@@ -805,6 +878,113 @@ export interface operations {
             };
             400: components["responses"]["BadRequest"];
             /** @description Code invalid, pre-auth invalid/expired, or challenge consumed/missing. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            429: components["responses"]["TooManyRequests"];
+        };
+    };
+    startStepUp: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ChallengeStartRequest"];
+            };
+        };
+        responses: {
+            /** @description Challenge prepared. Response shape depends on method type. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ChallengeStartResponse"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            /** @description Method not found, or does not belong to current user. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            429: components["responses"]["TooManyRequests"];
+        };
+    };
+    resendStepUp: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ChallengeResendRequest"];
+            };
+        };
+        responses: {
+            /** @description A fresh code was sent (or the previous one re-sent). */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ChallengeStartResponse"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            /** @description No active step-up challenge for the given method under the current user. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            429: components["responses"]["TooManyRequests"];
+        };
+    };
+    verifyStepUp: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ChallengeVerifyRequest"];
+            };
+        };
+        responses: {
+            /** @description Step-up confirmation succeeded. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["StepUpVerifyResponse"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            /** @description Code invalid, session invalid, or challenge consumed/missing. */
             401: {
                 headers: {
                     [name: string]: unknown;

@@ -18,4 +18,10 @@ public interface IPreAuthTokenIssuer {
 
     /// <summary>Validate a verified-handoff token in finalize. Returns the trusted user id, or null if invalid, expired, or not a verified token.</summary>
     string? ValidateVerified(string token);
+
+    /// <summary>Mint a single-use step-up token after an action-confirmation challenge passes, valid for <see cref="Configuration.StepUpOptions.Ttl"/>.</summary>
+    PreAuthTokenInfo IssueStepUp(string userId);
+
+    /// <summary>Validate a step-up token. Returns its claims (user id + token id + expiry), or null if invalid, expired, or not a step-up token.</summary>
+    StepUpTokenClaims? ValidateStepUp(string token);
 }

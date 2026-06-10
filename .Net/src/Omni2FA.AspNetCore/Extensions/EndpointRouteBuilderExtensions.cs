@@ -23,6 +23,7 @@ public static class EndpointRouteBuilderExtensions {
         EnrollEmailEndpoints.Map(group);
         EnrollWebAuthnEndpoints.Map(group);
         ChallengeEndpoints.Map(group);
+        StepUpEndpoints.Map(group);
         RecoveryCodesEndpoints.Map(group);
 
         return endpoints;

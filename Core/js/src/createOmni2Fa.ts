@@ -6,6 +6,7 @@ import { createTotpEnrollmentMachine } from './machines/totpEnrollment/totpEnrol
 import { createEmailEnrollmentMachine } from './machines/emailEnrollment/emailEnrollmentMachine';
 import { createWebAuthnEnrollmentMachine } from './machines/webauthnEnrollment/webauthnEnrollmentMachine';
 import { createChallengeMachine } from './machines/challenge/challengeMachine';
+import { createStepUpMachine } from './machines/stepup/stepUpMachine';
 import { createMethodsMachine } from './machines/methods/methodsMachine';
 
 /**
@@ -19,12 +20,14 @@ export function createOmni2Fa(config: Omni2FaClientConfig): IOmni2Fa {
     const emailEnrollment = createActor(createEmailEnrollmentMachine(client));
     const webauthnEnrollment = createActor(createWebAuthnEnrollmentMachine(client));
     const challenge = createActor(createChallengeMachine(client));
+    const stepUp = createActor(createStepUpMachine(client));
     const methods = createActor(createMethodsMachine(client));
 
     totpEnrollment.start();
     emailEnrollment.start();
     webauthnEnrollment.start();
     challenge.start();
+    stepUp.start();
     methods.start();
 
     return {
@@ -33,12 +36,14 @@ export function createOmni2Fa(config: Omni2FaClientConfig): IOmni2Fa {
         emailEnrollment,
         webauthnEnrollment,
         challenge,
+        stepUp,
         methods,
         dispose() {
             totpEnrollment.stop();
             emailEnrollment.stop();
             webauthnEnrollment.stop();
             challenge.stop();
+            stepUp.stop();
             methods.stop();
         },
     };

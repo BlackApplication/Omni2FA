@@ -2,6 +2,7 @@ import type { IOmni2FaClient } from '../client/Interfaces/IOmni2FaClient';
 import type { ChallengeActor } from '../machines/challenge/challengeMachine';
 import type { EmailEnrollmentActor } from '../machines/emailEnrollment/emailEnrollmentMachine';
 import type { MethodsActor } from '../machines/methods/methodsMachine';
+import type { StepUpActor } from '../machines/stepup/stepUpMachine';
 import type { TotpEnrollmentActor } from '../machines/totpEnrollment/totpEnrollmentMachine';
 import type { WebAuthnEnrollmentActor } from '../machines/webauthnEnrollment/webauthnEnrollmentMachine';
 
@@ -12,6 +13,8 @@ export interface IOmni2Fa {
     emailEnrollment: EmailEnrollmentActor;
     webauthnEnrollment: WebAuthnEnrollmentActor;
     challenge: ChallengeActor;
+    /** Drives action-confirmation (step-up) ceremonies. The React `useStepUp` hook wraps this to confirm 2FA and yield a single-use token. */
+    stepUp: StepUpActor;
     methods: MethodsActor;
     /** Stops all internal actors. Call on app teardown or when switching users. */
     dispose(): void;

@@ -46,4 +46,11 @@ public static class Omni2FaErrorCodes {
 
     /// <summary>Request body failed structural validation.</summary>
     public const string ValidationFailed = "VALIDATION_FAILED";
+
+    /// <summary>
+    /// A step-up-protected action was attempted without a valid, unused step-up token, and the
+    /// user has at least one active 2FA method. The frontend must run a step-up challenge and retry
+    /// the request with the resulting token. Returned with HTTP 403.
+    /// </summary>
+    public const string StepUpRequired = "STEP_UP_REQUIRED";
 }

@@ -214,3 +214,27 @@ group.MapPost("/enroll/totp/start", async (IEnrollmentService svc, IUserContextA
 - The mapping is small and stable; a switch in one file is easier to audit than a chain of `IExceptionHandler`s.
 
 The HTTP-status switch is the single source of truth for status codes. The error-code catalogue ([`Core/protocol/ERROR_CODES.md`](../Core/protocol/ERROR_CODES.md)) lists the same codes; a unit test asserts every code in `Omni2FaErrorCodes` is mapped.
+
+> `STEP_UP_REQUIRED` (403) is the one exception — it's emitted directly by the step-up filters (§6), not through `ToHttpResult`, because it's a gate decision rather than a service `Result`.
+
+---
+
+## 6. Step-up — endpoint/action filters over an authorization policy
+
+Step-up 2FA gates a host's **own** sensitive endpoints (change password, view recovery codes, remove a method). Two thin filters share one decision:
+
+- `[RequireTwoFactor]` — an `IAsyncActionFilter` attribute for MVC controllers (the `[Authorize]`-style entry point).
+- `.RequireStepUp()` — adds an `IEndpointFilter` to minimal-API endpoints/groups (mirrors `PreAuthFilter` / `RateLimitFilter`).
+
+Both call `StepUpGate.EvaluateAsync`, which resolves the current user (`IUserContextAccessor`) and the `X-Omni2FA-StepUp` header, then asks `IStepUpEvaluator` (in `Omni2FA.Core`) for a verdict: `Satisfied` / `NotEnrolledBypass` → proceed, or `Required` → `403 STEP_UP_REQUIRED` with `details.availableMethods` + `stepUpPath`.
+
+**Why filters, not an authorization policy / `IAuthorizationRequirement`:**
+- A policy can only fail to a bare 403/401. To return the rich `STEP_UP_REQUIRED` envelope (which methods, where to confirm) you'd have to replace the global `IAuthorizationMiddlewareResultHandler` — which rewrites *every* authorization failure in the host. The library should answer for its own barrier, not take over the host's auth pipeline.
+- Filters are local to the decorated endpoint, need no host policy registration, and match the adapter's existing endpoint-filter style.
+- Step-up is orthogonal to authorization ("is this a fresh 2FA?" vs "who are you / may you?"), so it composes on top of `[Authorize]` rather than inside it.
+
+**Shared core.** All the security logic (token validity, identity binding, single-use consume, enrollment check) lives in `IStepUpEvaluator`, so both filters are dumb wrappers and the decision is testable without HTTP.
+
+**Step-up endpoints.** `/stepup/start|resend|verify` are session-authenticated (`RequireAuthorization()`) mirrors of `/challenge/*` — the user comes from `IUserContextAccessor`, not a pre-auth token. `verify` calls `ITwoFactorChallengeService.VerifyStepUpAsync`, which reuses the login verification core but mints a step-up token (`purpose=2fa-stepup`) instead of the login handoff token.
+
+**Single-use transport.** The token is a stateless JWT, but single use needs a little server state: `IStepUpNonceStore` records spent token ids until they expire — without it a token would be replayable until its TTL elapsed. The default `InMemoryStepUpNonceStore` (`IMemoryCache`) is single-instance; register a shared store for multi-node. The evaluator consumes the id only after confirming the token's subject matches the caller, so a foreign token is never burned on someone else's behalf.
