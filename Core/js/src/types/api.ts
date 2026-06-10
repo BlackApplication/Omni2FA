@@ -643,6 +643,20 @@ export interface components {
                 "application/json": components["schemas"]["ErrorResponse"];
             };
         };
+        /**
+         * @description Step-up confirmation required. The user has an active 2FA method and this action is gated by a
+         *     server-side step-up flag (`Omni2Fa:StepUp:RequireTwoFactorTo*`). Retry with a valid
+         *     `X-Omni2FA-StepUp` token; `details.availableMethods` lists the methods to confirm with. Only
+         *     returned when the host enabled the matching flag — otherwise these endpoints never produce it.
+         */
+        StepUpRequired: {
+            headers: {
+                [name: string]: unknown;
+            };
+            content: {
+                "application/json": components["schemas"]["ErrorResponse"];
+            };
+        };
         /** @description Pre-auth token is missing, malformed, or expired. */
         PreAuthInvalidOrExpired: {
             headers: {
@@ -727,6 +741,7 @@ export interface operations {
                 content?: never;
             };
             401: components["responses"]["Unauthorized"];
+            403: components["responses"]["StepUpRequired"];
             /** @description Method not found, or does not belong to current user. */
             404: {
                 headers: {
@@ -1020,6 +1035,7 @@ export interface operations {
             };
             400: components["responses"]["BadRequest"];
             401: components["responses"]["Unauthorized"];
+            403: components["responses"]["StepUpRequired"];
             /** @description An Email method is already enrolled for this user. */
             409: {
                 headers: {
@@ -1122,6 +1138,7 @@ export interface operations {
                 };
             };
             401: components["responses"]["Unauthorized"];
+            403: components["responses"]["StepUpRequired"];
             /** @description The per-user WebAuthn credential cap has been reached. */
             409: {
                 headers: {
@@ -1195,6 +1212,7 @@ export interface operations {
                 };
             };
             401: components["responses"]["Unauthorized"];
+            403: components["responses"]["StepUpRequired"];
             /** @description TOTP method already enrolled for this user. */
             409: {
                 headers: {
@@ -1261,6 +1279,7 @@ export interface operations {
                 };
             };
             401: components["responses"]["Unauthorized"];
+            403: components["responses"]["StepUpRequired"];
         };
     };
 }

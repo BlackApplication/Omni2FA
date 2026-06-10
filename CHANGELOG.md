@@ -2,6 +2,24 @@
 
 All notable changes to Omni2FA will be documented in this file. Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); versions follow [SemVer](https://semver.org/).
 
+## [0.8.0] — 2026-06-10
+
+Extends step-up to the library's **own** sensitive endpoints. The endpoints `MapOmni2Fa` mounts (remove
+method, regenerate recovery codes, enroll a new factor) can't be decorated by the host, so they're gated
+by opt-in config flags, and the JS client confirms + retries them automatically. Minor bump: those
+endpoints can now return `403 STEP_UP_REQUIRED`, and the client API + config grow.
+
+### Added
+- **Per-action step-up flags (.NET)** — `StepUp.RequireTwoFactorToEnroll` / `...ToRemoveMethod` / `...ToRegenerateRecoveryCodes` (all default `false`). When on, `MapOmni2Fa` applies `.RequireStepUp()` to the matching endpoint (`/enroll/*/start`, `DELETE /methods/{id}`, `/recovery-codes/regenerate`). A user with no active method is never blocked (`NotEnrolledBypass`).
+- **Client-side step-up handling (`@omni2fa/core`)** — `IOmni2FaClient.setStepUpHandler(handler)`: when one of the client's own sensitive calls returns `403 STEP_UP_REQUIRED`, the client invokes the handler (e.g. the React `confirmTwoFactor`) and retries with the `X-Omni2FA-StepUp` header. Covers `removeMethod`, `regenerateRecoveryCodes`, and the three enroll-`start` calls — whether called directly or via hooks.
+
+### Changed
+- OpenAPI `0.8.0`: the five gated operations document a `403 STEP_UP_REQUIRED` response (returned only when the host enabled the matching flag).
+- Docs (`README`, `ARCHITECTURE`, `ASPNETCORE`, `FLOWS`) and the `examples/full` host (flags on; a shared `StepUpDialog` + a `StepUpModalHost` that registers the handler) updated.
+
+### Security
+- Closes a gap from 0.7.3: the library's own destructive endpoints (notably remove-method and enroll-a-new-factor — a session-theft persistence vector) had no step-up path and couldn't be protected from outside. Recovery codes remain one-way hashed: there is no "view existing codes", so the gated recovery action is *regenerate*, not view.
+
 ## [0.7.3] — 2026-06-10
 
 Adds **step-up authentication** — a strict, single-use 2FA confirmation gate for sensitive actions

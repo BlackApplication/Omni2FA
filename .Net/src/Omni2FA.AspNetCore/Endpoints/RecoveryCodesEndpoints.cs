@@ -9,10 +9,10 @@ using Omni2FA.Core.Services.Interfaces;
 namespace Omni2FA.AspNetCore.Endpoints;
 
 internal static class RecoveryCodesEndpoints {
-    public static void Map(IEndpointRouteBuilder root) {
+    public static void Map(IEndpointRouteBuilder root, bool requireStepUp) {
         var group = root.MapGroup("/recovery-codes");
 
-        group.MapPost("/regenerate", async (
+        var regenerate = group.MapPost("/regenerate", async (
             IRecoveryCodeService service,
             IUserContextAccessor user,
             CancellationToken cancellationToken) =>
@@ -24,6 +24,11 @@ internal static class RecoveryCodesEndpoints {
         .WithName("regenerateRecoveryCodes")
         .WithTags("recovery-codes")
         .Produces<RecoveryCodesResponse>(StatusCodes.Status200OK)
-        .ProducesProblem(StatusCodes.Status401Unauthorized);
+        .ProducesProblem(StatusCodes.Status401Unauthorized)
+        .ProducesProblem(StatusCodes.Status403Forbidden);
+
+        if (requireStepUp) {
+            regenerate.RequireStepUp();
+        }
     }
 }

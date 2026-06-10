@@ -84,7 +84,8 @@ public class AuthService(IPreAuthTokenIssuer preAuth, ITwoFactorMethodStore meth
   "Totp":     { "Issuer": "MyApp" },
   "Email":    { "FromAddress": "no-reply@myapp.com",
                 "Smtp": { "Host": "smtp.example.com", "Port": 587, "Username": "...", "Password": "...", "UseStartTls": true } },
-  "WebAuthn": { "RelyingPartyId": "myapp.com", "Origins": [ "https://myapp.com" ] }
+  "WebAuthn": { "RelyingPartyId": "myapp.com", "Origins": [ "https://myapp.com" ] },
+  "StepUp":   { "RequireTwoFactorToEnroll": true, "RequireTwoFactorToRemoveMethod": true, "RequireTwoFactorToRegenerateRecoveryCodes": true }  // opt-in (default false): step-up on Omni2FA's own destructive endpoints
 }
 ```
 
@@ -172,6 +173,13 @@ async function changePassword() {
 
 While a prompt is `active`, render the 2FA UI (reuse your challenge UI): `methods` → `pick(id)` → `submit(code)`.
 
+**Protecting the library's own endpoints** — remove method, regenerate recovery codes, and enroll a new factor are mounted by `MapOmni2Fa`, so you can't decorate them. Turn them on with the per-action `StepUp.RequireTwoFactorTo*` flags (in `appsettings.json` above; all off by default — and recovery codes can't be *viewed*, only regenerated, so that's the gated action). Then register the prompt once so the client handles those `403`s itself (no per-call wiring):
+```tsx
+const { confirmTwoFactor /* + prompt state to render */ } = useStepUp();
+useEffect(() => omni.client.setStepUpHandler(confirmTwoFactor), [confirmTwoFactor]);
+```
+Now `omni.client.removeMethod(...)` / `regenerateRecoveryCodes()` / enrollment prompt for 2FA and retry automatically. A user with no method enrolled is never blocked.
+
 The step-up token is **single-use** — one confirmed 2FA per protected action. Consumed token ids are kept **in memory by default**, so on a multi-instance deployment a token spent on one node isn't known to the others — a brief replay window within the token TTL. Register a shared `IStepUpNonceStore` (e.g. Redis) to close it. Details in [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md).
 
 ---
@@ -184,6 +192,7 @@ The step-up token is **single-use** — one confirmed 2FA per protected action. 
 | `PreAuth.Ttl` | 5 min | Pre-auth ticket lifetime |
 | `PreAuth.VerifiedTtl` | 2 min | Verified-handoff token lifetime (the finalize proof) |
 | `StepUp.Ttl` | 5 min | Step-up token lifetime — gap allowed between confirming 2FA and the action |
+| `StepUp.RequireTwoFactorTo{Enroll,RemoveMethod,RegenerateRecoveryCodes}` | `false` | Gate the library's own destructive endpoints with step-up (opt-in, per action) |
 | `Totp.Issuer` | `Omni2FA` | Name shown in authenticator apps |
 | `Email.Smtp.*` / `Email.BackgroundDelivery` | — / `true` | SMTP transport; codes sent on a background worker by default |
 | `WebAuthn.RelyingPartyId` / `Origins` | `localhost` / `http://localhost:5173` | Must match your real hostname (HTTPS off-localhost) |

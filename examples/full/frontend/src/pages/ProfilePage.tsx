@@ -2,6 +2,7 @@ import { AppBar, Box, Button, Card, CardContent, Container, Stack, Toolbar, Typo
 import { useAuth } from '../auth/useAuth';
 import { TwoFactorSection } from '../components/TwoFactorSection';
 import { ChangePasswordCard } from '../components/ChangePasswordCard';
+import { StepUpModalHost } from '../components/StepUpModalHost';
 
 export function ProfilePage() {
     const { session, logout } = useAuth();
@@ -30,6 +31,9 @@ export function ProfilePage() {
                     <ChangePasswordCard />
                 </Stack>
             </Container>
+
+            {/* Drives step-up for the library's own protected calls (remove method / regenerate codes). */}
+            <StepUpModalHost />
         </Box>
     );
 }

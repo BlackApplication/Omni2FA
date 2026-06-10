@@ -26,8 +26,9 @@ import type {
     WebAuthnEnrollStartResponse,
 } from '../types/dtos';
 import type { ClientCall } from './Interfaces/ClientCall';
-import type { IOmni2FaClient } from './Interfaces/IOmni2FaClient';
+import type { IOmni2FaClient, StepUpHandler } from './Interfaces/IOmni2FaClient';
 import type { Omni2FaClientConfig } from './Omni2FaClientConfig';
+import { STEP_UP_HEADER } from '../stepup/constants';
 
 const DEFAULT_PREAUTH_KEY = 'omni2fa:preauth';
 const DEFAULT_SESSION_KEY = 'omni2fa:session';
@@ -42,6 +43,7 @@ export class Omni2FaClient implements IOmni2FaClient {
     private readonly sessionKey: string;
     private readonly basePath: string;
     private readonly inner: FetchClient;
+    private stepUpHandler: StepUpHandler | null = null;
 
     constructor(config: Omni2FaClientConfig) {
         this.storage = config.storage ?? new MemoryStorage();
@@ -93,6 +95,34 @@ export class Omni2FaClient implements IOmni2FaClient {
         return this.storage.get(this.sessionKey);
     }
 
+    setStepUpHandler(handler: StepUpHandler | null): void {
+        this.stepUpHandler = handler;
+    }
+
+    /**
+     * Run a request and, if it comes back 403 STEP_UP_REQUIRED with a handler registered, confirm 2FA
+     * and retry once with the step-up header. Used by the library's own sensitive endpoints; other calls
+     * invoke openapi-fetch directly.
+     */
+    private async sendWithStepUp<T>(
+        invoke: (headers: Record<string, string>) => Promise<{ data?: T; error?: ErrorResponse; response: Response }>,
+    ): Promise<{ data?: T; error?: ErrorResponse; response: Response }> {
+        const first = await invoke({});
+        if (
+            first.error !== undefined &&
+            first.response.status === 403 &&
+            first.error.code === Omni2FaErrorCodes.StepUpRequired &&
+            this.stepUpHandler !== null
+        ) {
+            const methods = (first.error.details?.availableMethods as TwoFactorMethodDto[] | undefined) ?? [];
+            const token = await this.stepUpHandler(methods);
+            if (token) {
+                return invoke({ [STEP_UP_HEADER]: token });
+            }
+        }
+        return first;
+    }
+
     private setToken(key: string, token: string | null): void {
         if (token === null || token.length === 0) {
             this.storage.remove(key);
@@ -107,7 +137,9 @@ export class Omni2FaClient implements IOmni2FaClient {
     }
 
     async removeMethod(methodId: string): Promise<ClientCall<void>> {
-        const { error, response } = await this.inner.DELETE('/methods/{methodId}', { params: { path: { methodId } } });
+        const { error, response } = await this.sendWithStepUp((headers) =>
+            this.inner.DELETE('/methods/{methodId}', { params: { path: { methodId } }, headers }),
+        );
         if (error) {
             return this.errorCall(error, response);
         }
@@ -115,7 +147,7 @@ export class Omni2FaClient implements IOmni2FaClient {
     }
 
     async startTotpEnrollment(): Promise<ClientCall<TotpEnrollStartResponse>> {
-        const { data, error, response } = await this.inner.POST('/enroll/totp/start');
+        const { data, error, response } = await this.sendWithStepUp((headers) => this.inner.POST('/enroll/totp/start', { headers }));
         return this.toCall(data, error, response);
     }
 
@@ -125,7 +157,7 @@ export class Omni2FaClient implements IOmni2FaClient {
     }
 
     async startEmailEnrollment(request: EmailEnrollStartRequest): Promise<ClientCall<EmailEnrollStartResponse>> {
-        const { data, error, response } = await this.inner.POST('/enroll/email/start', { body: request });
+        const { data, error, response } = await this.sendWithStepUp((headers) => this.inner.POST('/enroll/email/start', { body: request, headers }));
         return this.toCall(data, error, response);
     }
 
@@ -140,7 +172,7 @@ export class Omni2FaClient implements IOmni2FaClient {
     }
 
     async startWebAuthnEnrollment(): Promise<ClientCall<WebAuthnEnrollStartResponse>> {
-        const { data, error, response } = await this.inner.POST('/enroll/webauthn/start');
+        const { data, error, response } = await this.sendWithStepUp((headers) => this.inner.POST('/enroll/webauthn/start', { headers }));
         return this.toCall(data, error, response);
     }
 
@@ -185,7 +217,7 @@ export class Omni2FaClient implements IOmni2FaClient {
     }
 
     async regenerateRecoveryCodes(): Promise<ClientCall<RecoveryCodesResponse>> {
-        const { data, error, response } = await this.inner.POST('/recovery-codes/regenerate');
+        const { data, error, response } = await this.sendWithStepUp((headers) => this.inner.POST('/recovery-codes/regenerate', { headers }));
         return this.toCall(data, error, response);
     }
 

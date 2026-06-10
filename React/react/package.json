@@ -1,6 +1,6 @@
 {
   "name": "@omni2fa/react",
-  "version": "0.7.3",
+  "version": "0.8.0",
   "description": "Omni2FA — headless React adapter. Thin hooks (useTotpEnrollment, useChallenge, useMethods) subscribed to @omni2fa/core actors. No business logic — bring your own UI, or use @omni2fa/react-mui for a styled drop-in.",
   "keywords": [
     "2fa",

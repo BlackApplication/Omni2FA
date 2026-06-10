@@ -16,15 +16,16 @@ public static class EndpointRouteBuilderExtensions {
     /// </summary>
     public static IEndpointRouteBuilder MapOmni2Fa(this IEndpointRouteBuilder endpoints) {
         var options = endpoints.ServiceProvider.GetRequiredService<IOptions<Omni2FaOptions>>().Value;
+        var stepUp = options.StepUp;
         var group = endpoints.MapGroup(options.AspNetCore.RoutePrefix);
 
-        MethodsEndpoints.Map(group);
-        EnrollTotpEndpoints.Map(group);
-        EnrollEmailEndpoints.Map(group);
-        EnrollWebAuthnEndpoints.Map(group);
+        MethodsEndpoints.Map(group, stepUp.RequireTwoFactorToRemoveMethod);
+        EnrollTotpEndpoints.Map(group, stepUp.RequireTwoFactorToEnroll);
+        EnrollEmailEndpoints.Map(group, stepUp.RequireTwoFactorToEnroll);
+        EnrollWebAuthnEndpoints.Map(group, stepUp.RequireTwoFactorToEnroll);
         ChallengeEndpoints.Map(group);
         StepUpEndpoints.Map(group);
-        RecoveryCodesEndpoints.Map(group);
+        RecoveryCodesEndpoints.Map(group, stepUp.RequireTwoFactorToRegenerateRecoveryCodes);
 
         return endpoints;
     }

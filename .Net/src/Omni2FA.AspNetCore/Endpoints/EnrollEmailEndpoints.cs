@@ -12,10 +12,10 @@ using Omni2FA.Core.Services.Interfaces;
 namespace Omni2FA.AspNetCore.Endpoints;
 
 internal static class EnrollEmailEndpoints {
-    public static void Map(IEndpointRouteBuilder root) {
+    public static void Map(IEndpointRouteBuilder root, bool requireStepUpOnStart) {
         var group = root.MapGroup("/enroll/email").AddEndpointFilter<RateLimitFilter>();
 
-        group.MapPost("/start", async (
+        var start = group.MapPost("/start", async (
             EmailEnrollStartRequest request,
             IEmailEnrollmentService service,
             IUserContextAccessor user,
@@ -35,7 +35,12 @@ internal static class EnrollEmailEndpoints {
         .Produces<EmailEnrollStartResponse>(StatusCodes.Status200OK)
         .ProducesProblem(StatusCodes.Status400BadRequest)
         .ProducesProblem(StatusCodes.Status401Unauthorized)
+        .ProducesProblem(StatusCodes.Status403Forbidden)
         .ProducesProblem(StatusCodes.Status409Conflict);
+
+        if (requireStepUpOnStart) {
+            start.RequireStepUp();
+        }
 
         group.MapPost("/confirm", async (
             EmailEnrollConfirmRequest request,

@@ -10,10 +10,10 @@ using Omni2FA.Core.Services.Interfaces;
 namespace Omni2FA.AspNetCore.Endpoints;
 
 internal static class EnrollTotpEndpoints {
-    public static void Map(IEndpointRouteBuilder root) {
+    public static void Map(IEndpointRouteBuilder root, bool requireStepUpOnStart) {
         var group = root.MapGroup("/enroll/totp").AddEndpointFilter<RateLimitFilter>();
 
-        group.MapPost("/start", async (
+        var start = group.MapPost("/start", async (
             ITotpEnrollmentService service,
             IUserContextAccessor user,
             CancellationToken cancellationToken) =>
@@ -26,7 +26,12 @@ internal static class EnrollTotpEndpoints {
         .WithTags("enroll-totp")
         .Produces<TotpEnrollStartResponse>(StatusCodes.Status200OK)
         .ProducesProblem(StatusCodes.Status401Unauthorized)
+        .ProducesProblem(StatusCodes.Status403Forbidden)
         .ProducesProblem(StatusCodes.Status409Conflict);
+
+        if (requireStepUpOnStart) {
+            start.RequireStepUp();
+        }
 
         group.MapPost("/confirm", async (
             TotpEnrollConfirmRequest request,

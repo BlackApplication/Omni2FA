@@ -10,10 +10,10 @@ using Omni2FA.Core.Services.Interfaces;
 namespace Omni2FA.AspNetCore.Endpoints;
 
 internal static class EnrollWebAuthnEndpoints {
-    public static void Map(IEndpointRouteBuilder root) {
+    public static void Map(IEndpointRouteBuilder root, bool requireStepUpOnStart) {
         var group = root.MapGroup("/enroll/webauthn").AddEndpointFilter<RateLimitFilter>();
 
-        group.MapPost("/start", async (
+        var start = group.MapPost("/start", async (
             IWebAuthnEnrollmentService service,
             IUserContextAccessor user,
             CancellationToken cancellationToken) =>
@@ -26,7 +26,12 @@ internal static class EnrollWebAuthnEndpoints {
         .WithTags("enroll-webauthn")
         .Produces<WebAuthnEnrollStartResponse>(StatusCodes.Status200OK)
         .ProducesProblem(StatusCodes.Status401Unauthorized)
+        .ProducesProblem(StatusCodes.Status403Forbidden)
         .ProducesProblem(StatusCodes.Status409Conflict);
+
+        if (requireStepUpOnStart) {
+            start.RequireStepUp();
+        }
 
         group.MapPost("/confirm", async (
             WebAuthnEnrollConfirmRequest request,

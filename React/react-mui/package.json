@@ -1,6 +1,6 @@
 {
   "name": "@omni2fa/react-mui",
-  "version": "0.7.3",
+  "version": "0.8.0",
   "private": true,
   "description": "Omni2FA — drop-in 2FA UI for React apps on Material UI. Pre-built methods section, enrollment dialogs, login challenge UI. Wraps @omni2fa/react headless hooks — no business logic of its own.",
   "keywords": [

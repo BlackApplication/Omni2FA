@@ -20,6 +20,9 @@ import type {
 } from '../../types/dtos';
 import type { ClientCall } from './ClientCall';
 
+/** Confirms 2FA and resolves a single-use step-up token, or null if the user cancels. Registered via {@link IOmni2FaClient.setStepUpHandler}. */
+export type StepUpHandler = (methods: TwoFactorMethodDto[]) => Promise<string | null>;
+
 /** Typed wrapper over the Omni2FA HTTP contract. Adapters consume this — they never call <c>fetch</c> directly. */
 export interface IOmni2FaClient {
     listMethods(): Promise<ClientCall<TwoFactorMethodDto[]>>;
@@ -54,4 +57,12 @@ export interface IOmni2FaClient {
     /** Host session token — sent on host-session endpoints (<c>/methods</c>, <c>/enroll/*</c>, <c>/recovery-codes/*</c>). */
     setSessionToken(token: string | null): void;
     getSessionToken(): string | null;
+
+    /**
+     * Register a handler that confirms 2FA when one of the library's own sensitive calls (remove method,
+     * regenerate recovery codes, enroll start) returns <c>403 STEP_UP_REQUIRED</c> — only when the host
+     * enabled the matching server flag. The client invokes it, then retries the call with the step-up
+     * header. Pass the React <c>useStepUp().confirmTwoFactor</c> here, or null to clear.
+     */
+    setStepUpHandler(handler: StepUpHandler | null): void;
 }

@@ -9,7 +9,7 @@ using Omni2FA.Core.Services.Interfaces;
 namespace Omni2FA.AspNetCore.Endpoints;
 
 internal static class MethodsEndpoints {
-    public static void Map(IEndpointRouteBuilder group) {
+    public static void Map(IEndpointRouteBuilder group, bool requireStepUpOnRemove) {
         group.MapGet("/methods", async (
             ITwoFactorMethodService service,
             IUserContextAccessor user,
@@ -24,7 +24,7 @@ internal static class MethodsEndpoints {
         .Produces<IReadOnlyList<TwoFactorMethodDto>>(StatusCodes.Status200OK)
         .ProducesProblem(StatusCodes.Status401Unauthorized);
 
-        group.MapDelete("/methods/{methodId:guid}", async (
+        var remove = group.MapDelete("/methods/{methodId:guid}", async (
             Guid methodId,
             ITwoFactorMethodService service,
             IUserContextAccessor user,
@@ -38,7 +38,12 @@ internal static class MethodsEndpoints {
         .WithTags("methods")
         .Produces(StatusCodes.Status204NoContent)
         .ProducesProblem(StatusCodes.Status401Unauthorized)
+        .ProducesProblem(StatusCodes.Status403Forbidden)
         .ProducesProblem(StatusCodes.Status404NotFound)
         .ProducesProblem(StatusCodes.Status409Conflict);
+
+        if (requireStepUpOnRemove) {
+            remove.RequireStepUp();
+        }
     }
 }

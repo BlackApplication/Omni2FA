@@ -1,6 +1,6 @@
 export { Omni2FaClient } from './client/Omni2FaClient';
 export type { Omni2FaClientConfig } from './client/Omni2FaClientConfig';
-export type { IOmni2FaClient } from './client/Interfaces/IOmni2FaClient';
+export type { IOmni2FaClient, StepUpHandler } from './client/Interfaces/IOmni2FaClient';
 export type { ClientCall } from './client/Interfaces/ClientCall';
 export type { ClientCallResult } from './client/Interfaces/ClientCallResult';
 export type { ClientCallError } from './client/Interfaces/ClientCallError';

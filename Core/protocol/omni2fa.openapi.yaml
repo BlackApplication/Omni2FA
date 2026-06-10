@@ -2,7 +2,7 @@ openapi: 3.1.0
 
 info:
   title: Omni2FA API
-  version: 0.7.3
+  version: 0.8.0
   summary: Cross-stack HTTP contract for multi-method 2FA.
   description: |
     The HTTP contract that any backend implementing Omni2FA must satisfy, and
@@ -115,6 +115,8 @@ paths:
           description: Method removed.
         '401':
           $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/StepUpRequired'
         '404':
           description: Method not found, or does not belong to current user.
           content:
@@ -423,6 +425,8 @@ paths:
           $ref: '#/components/responses/BadRequest'
         '401':
           $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/StepUpRequired'
         '409':
           description: An Email method is already enrolled for this user.
           content:
@@ -519,6 +523,8 @@ paths:
                 $ref: '#/components/schemas/WebAuthnEnrollStartResponse'
         '401':
           $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/StepUpRequired'
         '409':
           description: The per-user WebAuthn credential cap has been reached.
           content:
@@ -584,6 +590,8 @@ paths:
                 $ref: '#/components/schemas/TotpEnrollStartResponse'
         '401':
           $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/StepUpRequired'
         '409':
           description: TOTP method already enrolled for this user.
           content:
@@ -650,6 +658,8 @@ paths:
                 $ref: '#/components/schemas/RecoveryCodesResponse'
         '401':
           $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/StepUpRequired'
 
 components:
 
@@ -1038,6 +1048,17 @@ components:
   responses:
     Unauthorized:
       description: Missing or invalid session token.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+
+    StepUpRequired:
+      description: |
+        Step-up confirmation required. The user has an active 2FA method and this action is gated by a
+        server-side step-up flag (`Omni2Fa:StepUp:RequireTwoFactorTo*`). Retry with a valid
+        `X-Omni2FA-StepUp` token; `details.availableMethods` lists the methods to confirm with. Only
+        returned when the host enabled the matching flag — otherwise these endpoints never produce it.
       content:
         application/json:
           schema:
