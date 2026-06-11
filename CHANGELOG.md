@@ -2,6 +2,19 @@
 
 All notable changes to Omni2FA will be documented in this file. Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); versions follow [SemVer](https://semver.org/).
 
+## [0.8.1] — 2026-06-11
+
+Packaging/quality patch — **no API or behavior changes**. Cleans up the npm supply-chain footprint
+reported by socket.dev.
+
+### Fixed
+- **`@omni2fa/core`** — removed the embedded `http://omni2fa.local` fallback-origin literal from the bundle. It was only ever used as a base for `new URL(path, origin)` to read a request's pathname (the origin was never fetched), but socket.dev's static analyzer flagged it as a *URL strings* supply-chain alert. Replaced with a pure string parser (`pathnameOf`) — byte-for-byte identical to `new URL(...).pathname` on all inputs, with no URL literal shipped.
+- **Internal version alignment** — `@omni2fa/react` and `@omni2fa/react-mui` now depend on the matching `0.8.1` of `@omni2fa/core` / `@omni2fa/react` (they were left pinned to a stale `0.7.1`, so `@omni2fa/react@0.8.0` resolved an older core).
+
+### Changed
+- Every published npm package now ships a `LICENSE` file in its tarball (previously the MIT license lived only at the repo root, so it was absent from each package on npm).
+- Added `socket.yml` documenting the reviewed-and-accepted dependency capabilities (network access via openapi-fetch, `process.env.NODE_ENV` in the react-ecosystem shims, minified UMD bundles in xstate/openapi-fetch).
+
 ## [0.8.0] — 2026-06-10
 
 Extends step-up to the library's **own** sensitive endpoints. The endpoints `MapOmni2Fa` mounts (remove

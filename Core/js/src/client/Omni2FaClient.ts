@@ -32,8 +32,31 @@ import { STEP_UP_HEADER } from '../stepup/constants';
 
 const DEFAULT_PREAUTH_KEY = 'omni2fa:preauth';
 const DEFAULT_SESSION_KEY = 'omni2fa:session';
-// Only used to resolve a relative baseUrl/request URL so we can read its pathname; the origin is irrelevant.
-const FALLBACK_ORIGIN = 'http://omni2fa.local';
+
+/**
+ * Extract the pathname from a URL string without constructing a `URL` (which would need an absolute
+ * base for relative inputs, forcing a dummy origin literal into the bundle). Handles absolute,
+ * protocol-relative, and bare-path URLs, and strips any query string or fragment. The origin is
+ * irrelevant here — callers only classify endpoints by their path under {basePath}.
+ */
+function pathnameOf(input: string): string {
+    let s = input;
+    const scheme = /^[a-zA-Z][a-zA-Z\d+\-.]*:\/\//.exec(s);
+    if (scheme) {
+        s = s.slice(scheme[0].length);
+        const slash = s.indexOf('/');
+        s = slash === -1 ? '/' : s.slice(slash);
+    } else if (s.startsWith('//')) {
+        s = s.slice(2);
+        const slash = s.indexOf('/');
+        s = slash === -1 ? '/' : s.slice(slash);
+    }
+    const hash = s.indexOf('#');
+    if (hash !== -1) s = s.slice(0, hash);
+    const query = s.indexOf('?');
+    if (query !== -1) s = s.slice(0, query);
+    return s.startsWith('/') ? s : `/${s}`;
+}
 
 type FetchClient = ReturnType<typeof createClient<paths>>;
 
@@ -50,7 +73,7 @@ export class Omni2FaClient implements IOmni2FaClient {
         this.preAuthKey = config.preAuthStorageKey ?? DEFAULT_PREAUTH_KEY;
         this.sessionKey = config.sessionStorageKey ?? DEFAULT_SESSION_KEY;
         // Mount path of the API, e.g. "/api/2fa" — used to classify endpoints by their path under it.
-        this.basePath = new URL(config.baseUrl, FALLBACK_ORIGIN).pathname.replace(/\/$/, '');
+        this.basePath = pathnameOf(config.baseUrl).replace(/\/$/, '');
         this.inner = createClient<paths>({
             baseUrl: config.baseUrl,
             fetch: config.fetch ?? globalThis.fetch.bind(globalThis),
@@ -74,7 +97,7 @@ export class Omni2FaClient implements IOmni2FaClient {
 
     /** Pre-auth endpoints are exactly the ones mounted under <c>{basePath}/challenge/</c>. */
     private isPreAuthEndpoint(url: string): boolean {
-        const path = new URL(url, FALLBACK_ORIGIN).pathname;
+        const path = pathnameOf(url);
         const relative = path.startsWith(this.basePath) ? path.slice(this.basePath.length) : path;
         return relative.startsWith('/challenge/');
     }

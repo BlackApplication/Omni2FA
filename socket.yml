@@ -1,0 +1,19 @@
+# Socket configuration — https://docs.socket.dev/docs/socket-yml
+#
+# The alert rules below are turned off because they fire on well-known, expected
+# capabilities of our dependency tree, not on our own code. They are reviewed and accepted:
+#
+#   networkAccess  — openapi-fetch reads globalThis.fetch; it IS our HTTP client.
+#   envVars        — react-ecosystem shims (use-sync-external-store, xstate) read
+#                    process.env.NODE_ENV for the standard dev/prod branch.
+#   minifiedFile   — xstate / openapi-fetch ship a minified UMD bundle alongside the readable one.
+#
+# NOTE: this governs Socket's scanning of THIS repo (e.g. the GitHub app on PRs). It does not
+# repaint the public package score on socket.dev — that only improves by dropping the dependency.
+# `urlStrings` is intentionally left ON: we removed our only URL literal in 0.8.1 and want the
+# guard to catch any regression.
+version: 2
+issueRules:
+  networkAccess: false
+  envVars: false
+  minifiedFile: false
