@@ -4,6 +4,7 @@ using Microsoft.AspNetCore.Routing;
 using Microsoft.Extensions.Options;
 using Omni2FA.AspNetCore.Extensions;
 using Omni2FA.AspNetCore.Filters;
+using Omni2FA.AspNetCore.Internal;
 using Omni2FA.AspNetCore.Services.Interfaces;
 using Omni2FA.Core.Configuration;
 using Omni2FA.Core.Dtos;
@@ -12,7 +13,7 @@ using Omni2FA.Core.Services.Interfaces;
 namespace Omni2FA.AspNetCore.Endpoints;
 
 internal static class EnrollEmailEndpoints {
-    public static void Map(IEndpointRouteBuilder root, bool requireStepUpOnStart) {
+    public static void Map(IEndpointRouteBuilder root, Omni2FaAudienceOptions audience, bool requireStepUpOnStart) {
         var group = root.MapGroup("/enroll/email").AddEndpointFilter<RateLimitFilter>();
 
         var start = group.MapPost("/start", async (
@@ -28,8 +29,8 @@ internal static class EnrollEmailEndpoints {
             var result = await service.StartAsync(user.GetCurrentUserId(), email, cancellationToken).ConfigureAwait(false);
             return result.ToHttpResult();
         })
-        .RequireAuthorization()
-        .WithName("startEmailEnrollment")
+        .RequireOmni2FaSession(audience)
+        .WithName(EndpointNaming.For(audience, "startEmailEnrollment"))
         .WithTags("enroll-email")
         .Accepts<EmailEnrollStartRequest>("application/json")
         .Produces<EmailEnrollStartResponse>(StatusCodes.Status200OK)
@@ -51,8 +52,8 @@ internal static class EnrollEmailEndpoints {
             var result = await service.ConfirmAsync(user.GetCurrentUserId(), request, cancellationToken).ConfigureAwait(false);
             return result.ToHttpResult();
         })
-        .RequireAuthorization()
-        .WithName("confirmEmailEnrollment")
+        .RequireOmni2FaSession(audience)
+        .WithName(EndpointNaming.For(audience, "confirmEmailEnrollment"))
         .WithTags("enroll-email")
         .Accepts<EmailEnrollConfirmRequest>("application/json")
         .Produces<MethodCreatedResponse>(StatusCodes.Status200OK)
@@ -70,8 +71,8 @@ internal static class EnrollEmailEndpoints {
             var result = await service.ResendAsync(user.GetCurrentUserId(), request, cancellationToken).ConfigureAwait(false);
             return result.ToHttpResult();
         })
-        .RequireAuthorization()
-        .WithName("resendEmailEnrollment")
+        .RequireOmni2FaSession(audience)
+        .WithName(EndpointNaming.For(audience, "resendEmailEnrollment"))
         .WithTags("enroll-email")
         .Accepts<EmailEnrollResendRequest>("application/json")
         .Produces<EmailEnrollStartResponse>(StatusCodes.Status200OK)

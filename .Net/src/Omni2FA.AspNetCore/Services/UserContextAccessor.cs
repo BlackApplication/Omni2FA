@@ -1,8 +1,10 @@
 using System.IdentityModel.Tokens.Jwt;
 using Microsoft.AspNetCore.Http;
 using Microsoft.Extensions.Options;
+using Omni2FA.AspNetCore.Routing;
 using Omni2FA.AspNetCore.Services.Interfaces;
 using Omni2FA.Core.Configuration;
+using Omni2FA.Core.Services.Interfaces;
 
 namespace Omni2FA.AspNetCore.Services;
 
@@ -14,27 +16,23 @@ namespace Omni2FA.AspNetCore.Services;
 /// </summary>
 public class UserContextAccessor : IUserContextAccessor {
     private readonly IHttpContextAccessor _httpContext;
+    private readonly IOmni2FaAudienceRegistry _audiences;
     private readonly AspNetCoreOptions _options;
 
-    public UserContextAccessor(IHttpContextAccessor httpContext, IOptions<Omni2FaOptions> options) {
+    public UserContextAccessor(IHttpContextAccessor httpContext, IOmni2FaAudienceRegistry audiences, IOptions<Omni2FaOptions> options) {
         _httpContext = httpContext;
+        _audiences = audiences;
         _options = options.Value.AspNetCore;
     }
 
     public virtual string GetCurrentUserId() {
-        var value = FindClaimValue(_options.UserIdClaim, JwtRegisteredClaimNames.Sub);
-        if (string.IsNullOrWhiteSpace(value)) {
-            throw new InvalidOperationException(
-                $"No '{_options.UserIdClaim}' or 'sub' claim on the current principal. " +
-                "Set Omni2FaOptions.AspNetCore.UserIdClaim if your host stores the user id under a different claim, " +
-                "or override IUserContextAccessor via DI to read it from a custom source.");
-        }
-        return value;
+        return _audiences.ToSubject(CurrentAudienceName(), GetRawUserId());
     }
 
     public virtual string GetCurrentUserLabel() {
         var value = FindClaimValue(_options.UserLabelClaim, JwtRegisteredClaimNames.Email);
-        return string.IsNullOrWhiteSpace(value) ? GetCurrentUserId() : value;
+        // Falls back to the raw id, not the namespaced subject — the label is shown in authenticator apps.
+        return string.IsNullOrWhiteSpace(value) ? GetRawUserId() : value;
     }
 
     public virtual string GetCurrentUserEmail() {
@@ -47,6 +45,31 @@ public class UserContextAccessor : IUserContextAccessor {
                 "or override IUserContextAccessor.GetCurrentUserEmail() to read it from a custom source.");
         }
         return value;
+    }
+
+    /// <summary>
+    /// The user id exactly as the host's identity carries it, before the audience namespace is applied.
+    /// Override this (rather than <see cref="GetCurrentUserId"/>) when the id lives outside the claims —
+    /// namespacing then still happens for you.
+    /// </summary>
+    protected string GetRawUserId() {
+        var value = FindClaimValue(_options.UserIdClaim, JwtRegisteredClaimNames.Sub);
+        if (string.IsNullOrWhiteSpace(value)) {
+            throw new InvalidOperationException(
+                $"No '{_options.UserIdClaim}' or 'sub' claim on the current principal. " +
+                "Set Omni2FaOptions.AspNetCore.UserIdClaim if your host stores the user id under a different claim, " +
+                "or override IUserContextAccessor via DI to read it from a custom source.");
+        }
+        return value;
+    }
+
+    /// <summary>
+    /// Audience serving the current request, taken from endpoint metadata (<c>MapOmni2Fa("name")</c>,
+    /// <c>[Omni2FaAudience]</c>, <c>WithOmni2FaAudience</c>). Null — the default audience — when the
+    /// endpoint carries no such metadata, which is every endpoint in a single-population host.
+    /// </summary>
+    protected string? CurrentAudienceName() {
+        return _httpContext.HttpContext?.GetEndpoint()?.Metadata.GetMetadata<IOmni2FaAudienceMetadata>()?.AudienceName;
     }
 
     /// <summary>Reads <paramref name="primaryClaim"/> from the current principal, falling back to <paramref name="fallbackClaim"/> (raw JWT claim for hosts with <c>MapInboundClaims = false</c>).</summary>

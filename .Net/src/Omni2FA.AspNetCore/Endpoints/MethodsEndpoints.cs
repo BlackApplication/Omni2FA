@@ -2,14 +2,16 @@ using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Routing;
 using Omni2FA.AspNetCore.Extensions;
+using Omni2FA.AspNetCore.Internal;
 using Omni2FA.AspNetCore.Services.Interfaces;
+using Omni2FA.Core.Configuration;
 using Omni2FA.Core.Dtos;
 using Omni2FA.Core.Services.Interfaces;
 
 namespace Omni2FA.AspNetCore.Endpoints;
 
 internal static class MethodsEndpoints {
-    public static void Map(IEndpointRouteBuilder group, bool requireStepUpOnRemove) {
+    public static void Map(IEndpointRouteBuilder group, Omni2FaAudienceOptions audience, bool requireStepUpOnRemove) {
         group.MapGet("/methods", async (
             ITwoFactorMethodService service,
             IUserContextAccessor user,
@@ -18,8 +20,8 @@ internal static class MethodsEndpoints {
             var methods = await service.ListAsync(user.GetCurrentUserId(), cancellationToken).ConfigureAwait(false);
             return Results.Ok(methods);
         })
-        .RequireAuthorization()
-        .WithName("listMethods")
+        .RequireOmni2FaSession(audience)
+        .WithName(EndpointNaming.For(audience, "listMethods"))
         .WithTags("methods")
         .Produces<IReadOnlyList<TwoFactorMethodDto>>(StatusCodes.Status200OK)
         .ProducesProblem(StatusCodes.Status401Unauthorized);
@@ -33,8 +35,8 @@ internal static class MethodsEndpoints {
             var result = await service.RemoveAsync(user.GetCurrentUserId(), methodId, cancellationToken).ConfigureAwait(false);
             return result.ToHttpResult();
         })
-        .RequireAuthorization()
-        .WithName("removeMethod")
+        .RequireOmni2FaSession(audience)
+        .WithName(EndpointNaming.For(audience, "removeMethod"))
         .WithTags("methods")
         .Produces(StatusCodes.Status204NoContent)
         .ProducesProblem(StatusCodes.Status401Unauthorized)

@@ -1,6 +1,7 @@
 using Microsoft.AspNetCore.Http;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Options;
+using Omni2FA.AspNetCore.Routing;
 using Omni2FA.AspNetCore.Services.Interfaces;
 using Omni2FA.Core.Configuration;
 using Omni2FA.Core.Enums;
@@ -30,10 +31,13 @@ internal static class StepUpGate {
             return StepUpGateResult.Allowed;
         }
 
-        // Blocked: tell the frontend which methods it can confirm with and where to do it.
+        // Blocked: tell the frontend which methods it can confirm with and where to do it. The path is
+        // the caller's own audience mount — a customer must confirm on the portal's, not the staff one.
         var methodsService = services.GetRequiredService<ITwoFactorMethodService>();
         var methods = await methodsService.ListAsync(userId, http.RequestAborted).ConfigureAwait(false);
-        var stepUpPath = $"{options.AspNetCore.RoutePrefix.TrimEnd('/')}/stepup";
+        var audienceName = http.GetEndpoint()?.Metadata.GetMetadata<IOmni2FaAudienceMetadata>()?.AudienceName;
+        var audience = services.GetRequiredService<IOmni2FaAudienceRegistry>().Resolve(audienceName);
+        var stepUpPath = $"{audience.RoutePrefix.TrimEnd('/')}/stepup";
         return StepUpGateResult.Blocked(methods, stepUpPath);
     }
 }

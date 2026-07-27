@@ -2,14 +2,16 @@ using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Routing;
 using Omni2FA.AspNetCore.Extensions;
+using Omni2FA.AspNetCore.Internal;
 using Omni2FA.AspNetCore.Services.Interfaces;
+using Omni2FA.Core.Configuration;
 using Omni2FA.Core.Dtos;
 using Omni2FA.Core.Services.Interfaces;
 
 namespace Omni2FA.AspNetCore.Endpoints;
 
 internal static class RecoveryCodesEndpoints {
-    public static void Map(IEndpointRouteBuilder root, bool requireStepUp) {
+    public static void Map(IEndpointRouteBuilder root, Omni2FaAudienceOptions audience, bool requireStepUp) {
         var group = root.MapGroup("/recovery-codes");
 
         var regenerate = group.MapPost("/regenerate", async (
@@ -20,8 +22,8 @@ internal static class RecoveryCodesEndpoints {
             var result = await service.RegenerateAsync(user.GetCurrentUserId(), cancellationToken).ConfigureAwait(false);
             return result.ToHttpResult();
         })
-        .RequireAuthorization()
-        .WithName("regenerateRecoveryCodes")
+        .RequireOmni2FaSession(audience)
+        .WithName(EndpointNaming.For(audience, "regenerateRecoveryCodes"))
         .WithTags("recovery-codes")
         .Produces<RecoveryCodesResponse>(StatusCodes.Status200OK)
         .ProducesProblem(StatusCodes.Status401Unauthorized)

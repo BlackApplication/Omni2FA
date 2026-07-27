@@ -2,6 +2,49 @@
 
 All notable changes to Omni2FA will be documented in this file. Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); versions follow [SemVer](https://semver.org/).
 
+## [0.10.0] — 2026-07-27
+
+Multi-audience support: an application that signs in more than one population (staff and customers, with
+separate identity tables and overlapping ids) can now mount Omni2FA per population instead of squeezing
+both through one shared mount. Driven by a live host that had to flag its portal's 2FA requests with a
+custom header so the backend knew which cookie to read, and to prefix subjects by hand at login, at
+finalize, and in a custom `IUserContextAccessor`. No protocol change — the paths under each mount are the
+same, so OpenAPI stays at `0.8.0`.
+
+### Added
+- **Audiences (`Omni2FA.AspNetCore`)** — `AspNetCore.Audiences` declares a population as `Name` + `RoutePrefix` + `SubjectPrefix` + `AuthenticationSchemes`/`AuthorizationPolicy`. `MapOmni2Fa("customer")` mounts that audience's endpoints under its own prefix with its own scheme; `[Omni2FaAudience("name")]` / `.WithOmni2FaAudience("name")` tag the host's own endpoints (needed for `[RequireTwoFactor]`, which otherwise evaluates step-up against the default audience's subject). Mounting under the path that already identifies the population — e.g. `/api/portal/2fa` for a portal served from `/api/portal` — means the host's existing cookie/scheme/CORS rules cover the 2FA endpoints, so no request flag is needed.
+- **Subject namespacing** — an audience's `SubjectPrefix` is applied by the library: mounts tag their endpoints, and the default `UserContextAccessor` prefixes the id from the principal (override `GetRawUserId()` to keep namespacing while reading the id from elsewhere). `IOmni2FaAudienceRegistry.ToSubject` / `TryGetUserId` apply the same rule where the host talks to Omni2FA outside a mount — issuing the pre-auth token at login, reading the subject back at finalize. `TryGetUserId` on the default audience rejects subjects carrying another audience's prefix.
+- **Startup validation** — audience names, route prefixes, and subject prefixes must be unique, and every non-default audience must set a route prefix. `ValidateOnStart`, because a shared subject prefix silently merges two populations' 2FA methods.
+- **`Omni2FaClientConfig.namespace` (`@omni2fa/core`)** — scopes the client's storage keys (`omni2fa:portal:preauth`). Two clients in one browser previously shared `omni2fa:preauth`, so with a shared `sessionStorage`/`localStorage` the second login would overwrite the first one's token. Explicit `preAuthStorageKey`/`sessionStorageKey` still win.
+
+### Changed
+- `MapOmni2Fa` takes an optional audience name and returns the mounted `RouteGroupBuilder` (was `IEndpointRouteBuilder`; source-compatible, `RouteGroupBuilder` implements it). Attach only conventions that are safe on `/challenge/*` — it runs before a session exists; per-audience scheme and policy belong in the audience options, which apply them solely to session-authenticated endpoints.
+- The step-up `403 STEP_UP_REQUIRED` envelope now points at the caller's own audience mount (`stepUpPath`), not always the default one.
+- Endpoint names are suffixed per audience past the default (`listMethods-customer`) — endpoint names are unique application-wide, so a second mount would otherwise fail at startup. The default audience keeps the bare names used as OpenAPI operation ids.
+- `.NET` packages: version bump for the coordinated release; the JS packages' only change is `namespace`.
+
+### Migration
+- Nothing to do for a single-login host: the default audience is implicit, `MapOmni2Fa()` behaves as before, and existing subjects are stored unchanged.
+- A host that already namespaces subjects by hand can move the prefix into an audience and delete its custom accessor — but the prefix string must stay byte-identical, since it is part of every stored subject.
+
+## [0.9.0] — 2026-07-27
+
+Frontend ergonomics release, driven by live host integration. Adding a single header to every 2FA request
+used to mean replacing the whole transport via `fetch` — a wrapper that rebuilds the request from
+`(url, init)` silently drops the headers and body `openapi-fetch` already put on the `Request` it passes.
+Header decoration now has its own config slot, and the React step-up prompt registers itself. No protocol
+change: OpenAPI stays at `0.8.0` and the .NET packages are a version-only bump to keep `major.minor`
+aligned across the release (see the versioning model in `docs/ROADMAP.md`).
+
+### Added
+- **`Omni2FaClientConfig.headers` (`@omni2fa/core`)** — extra headers attached to every request, as a `HeadersInit` or a function resolved per request. Covers routing flags (`X-Portal-Auth`), a UI language the user can switch at runtime (`Accept-Language`), or an active-tenant id, without touching the transport. Applied before the client's own auth middleware, so a host-supplied `Authorization` still wins.
+- **`useStepUp({ handleClientStepUp })` (`@omni2fa/react`)** — the hook now registers its `confirmTwoFactor` on the client while mounted, so the library's own step-up-gated calls (remove method, regenerate recovery codes, enroll start) prompt and retry without any host wiring. Default `true`; pass `false` when the host registers its own handler via `client.setStepUpHandler`.
+
+### Changed
+- `Omni2FaClientConfig.fetch` is documented as what it is — the escape hatch for *transport* (retry, logging, non-browser fetch), invoked with a ready-made `Request` that must be forwarded as-is. Use `headers` for headers.
+- Hosts that call `omni.client.setStepUpHandler(confirmTwoFactor)` in an effect next to `useStepUp()` can delete it — the hook does it. Keep the manual call only if the handler isn't the one `useStepUp` returns, and then pass `{ handleClientStepUp: false }` so the two don't overwrite each other.
+- `.NET` packages: version bump only, no code changes.
+
 ## [0.8.1] — 2026-06-11
 
 Packaging/quality patch — **no API or behavior changes**. Cleans up the npm supply-chain footprint

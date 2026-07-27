@@ -111,6 +111,21 @@ omni.client.setSessionToken(sessionToken);
 <Omni2FaProvider value={omni}>{children}</Omni2FaProvider>
 ```
 
+**Sending your own headers** — a routing flag, the UI language, an active tenant. Use `headers`, not a custom `fetch`; a function is re-evaluated on every request, so runtime changes (language switch, tenant switch) are picked up:
+```ts
+createOmni2Fa({
+  baseUrl: '/api/2fa',
+  credentials: 'include',
+  headers: { 'X-Portal-Auth': '1' },                       // static
+});
+
+createOmni2Fa({
+  baseUrl: '/api/2fa',
+  headers: () => ({ 'Accept-Language': i18n.language }),   // resolved per request
+});
+```
+The `fetch` option stays the escape hatch for real transport concerns (retry, logging). It is called with a ready-made `Request` — forward it as-is (`(input, init) => fetch(input, init)`); rebuilding the request from `init` drops the headers and body the client already set.
+
 The hooks expose state + actions; you render the UI (headless).
 
 **Login challenge**
@@ -173,14 +188,55 @@ async function changePassword() {
 
 While a prompt is `active`, render the 2FA UI (reuse your challenge UI): `methods` → `pick(id)` → `submit(code)`.
 
-**Protecting the library's own endpoints** — remove method, regenerate recovery codes, and enroll a new factor are mounted by `MapOmni2Fa`, so you can't decorate them. Turn them on with the per-action `StepUp.RequireTwoFactorTo*` flags (in `appsettings.json` above; all off by default — and recovery codes can't be *viewed*, only regenerated, so that's the gated action). Then register the prompt once so the client handles those `403`s itself (no per-call wiring):
+**Protecting the library's own endpoints** — remove method, regenerate recovery codes, and enroll a new factor are mounted by `MapOmni2Fa`, so you can't decorate them. Turn them on with the per-action `StepUp.RequireTwoFactorTo*` flags (in `appsettings.json` above; all off by default — and recovery codes can't be *viewed*, only regenerated, so that's the gated action). The frontend needs no wiring: mounting `useStepUp()` anywhere in the tree registers its prompt on the client for you.
 ```tsx
 const { confirmTwoFactor /* + prompt state to render */ } = useStepUp();
-useEffect(() => omni.client.setStepUpHandler(confirmTwoFactor), [confirmTwoFactor]);
+// registered automatically while mounted; opt out with useStepUp({ handleClientStepUp: false })
+// when you register your own handler via omni.client.setStepUpHandler(...)
 ```
 Now `omni.client.removeMethod(...)` / `regenerateRecoveryCodes()` / enrollment prompt for 2FA and retry automatically. A user with no method enrolled is never blocked.
 
 The step-up token is **single-use** — one confirmed 2FA per protected action. Consumed token ids are kept **in memory by default**, so on a multi-instance deployment a token spent on one node isn't known to the others — a brief replay window within the token TTL. Register a shared `IStepUpNonceStore` (e.g. Redis) to close it. Details in [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md).
+
+---
+
+## Two logins in one app (staff + customers)
+
+Applications that sign in more than one population — staff at `/api/auth`, customers at `/api/portal/auth`, separate tables, ids that overlap — declare each as an **audience**: its own mount, its own subject namespace, its own auth scheme.
+
+```csharp
+services.AddOmni2Fa(o => {
+    o.AspNetCore.Audiences.Add(new Omni2FaAudienceOptions {
+        Name = "customer",
+        RoutePrefix = "/api/portal/2fa",     // put it under the path that already means "customer"
+        SubjectPrefix = "customer:",         // customer 42 and staff 42 are different users
+        AuthenticationSchemes = "CustomerCookie",
+    });
+});
+
+app.MapOmni2Fa();                            // staff  → /api/2fa
+app.MapOmni2Fa("customer");                  // portal → /api/portal/2fa
+
+app.MapGroup("/api/portal").WithOmni2FaAudience("customer");   // or [Omni2FaAudience("customer")] on a controller
+```
+
+Mounting under the portal's own path means whatever already tells your backend "this is a customer request" — the cookie you read, the scheme you pick, the CORS policy — covers the 2FA endpoints too, with nothing for the frontend to flag. Tag your own `[RequireTwoFactor]` endpoints with the audience as well, so step-up is evaluated against the right subject and points the caller at that audience's `/stepup`.
+
+The namespace is applied for you on every mounted endpoint. Where your code talks to Omni2FA directly — issuing the pre-auth token at login, reading the subject out of a verified-handoff token at finalize — take the subject from the registry instead of concatenating it yourself:
+
+```csharp
+var subject = audiences.ToSubject("customer", customer.Id.ToString());   // IOmni2FaAudienceRegistry
+if (!audiences.TryGetUserId("customer", verifiedSubject, out var id)) return Unauthorized();
+```
+
+On the frontend each audience is a separate client — its own `baseUrl`, and a `namespace` so two logins in one browser never share a storage key:
+
+```ts
+export const omni = createOmni2Fa({ baseUrl: '/api/2fa', credentials: 'include' });
+export const portalOmni = createOmni2Fa({ baseUrl: '/api/portal/2fa', credentials: 'include', namespace: 'portal' });
+```
+
+Single-login apps ignore all of this: the default audience is implicit and nothing changes. Design notes in [`docs/ASPNETCORE.md`](docs/ASPNETCORE.md) §7.
 
 ---
 
@@ -199,6 +255,7 @@ The step-up token is **single-use** — one confirmed 2FA per protected action. 
 | `WebAuthn.MaxCredentialsPerUser` | 3 | Passkey cap per user |
 | `RateLimit.{PermitLimit,Window}` | 20 / 1 min | Per-IP limit on verify/enroll endpoints |
 | `AspNetCore.AllowDisablingLastMethod` | `true` | Set `false` to forbid removing the last method |
+| `AspNetCore.Audiences` | empty | Separately authenticating populations (staff + customers): mount, subject namespace and auth scheme per audience |
 | EF table/column names | `Omni2Fa*` | Override via `ApplyOmni2FaConfiguration(o => …)` for migrations |
 
 ---

@@ -240,3 +240,65 @@ Both call `StepUpGate.EvaluateAsync`, which resolves the current user (`IUserCon
 **Single-use transport.** The token is a stateless JWT, but single use needs a little server state: `IStepUpNonceStore` records spent token ids until they expire — without it a token would be replayable until its TTL elapsed. The default `InMemoryStepUpNonceStore` (`IMemoryCache`) is single-instance; register a shared store for multi-node. The evaluator consumes the id only after confirming the token's subject matches the caller, so a foreign token is never burned on someone else's behalf.
 
 **Protecting Omni2FA's own endpoints (v0.8.0).** Hosts decorate their own endpoints, but the destructive endpoints `MapOmni2Fa` mounts can't be reached with an attribute, so they're gated by opt-in flags: `StepUp.RequireTwoFactorToEnroll` → `/enroll/*/start`, `RequireTwoFactorToRemoveMethod` → `DELETE /methods/{id}`, `RequireTwoFactorToRegenerateRecoveryCodes` → `/recovery-codes/regenerate` (all default `false`). `MapOmni2Fa` reads the flags and conditionally chains `.RequireStepUp()`. Enroll is gated at `start` (the entry point), so the 403 lands before an email is sent or WebAuthn options are issued. Because these are the library's own calls, the frontend retry lives in the client (`setStepUpHandler`), not in each hook.
+
+---
+
+## 7. Multiple audiences — one mount per population
+
+Some hosts authenticate more than one population: staff signing in at `/api/auth`, customers at
+`/api/portal/auth`, separate identity tables, separate sessions, ids that overlap between them. Before
+v0.10.0 the library had a single mount and a single subject space, so those hosts had to improvise:
+flag the shared `/api/2fa` requests with a header so the backend knew which cookie to read, and prefix
+subjects by hand in every place that talked to Omni2FA. Both are now first-class.
+
+```csharp
+services.AddOmni2Fa(o => {
+    o.AspNetCore.Audiences.Add(new Omni2FaAudienceOptions {
+        Name = "customer",
+        RoutePrefix = "/api/portal/2fa",     // under the path that already identifies the population
+        SubjectPrefix = "customer:",         // customer 42 → "customer:42"; staff 42 stays "42"
+        AuthenticationSchemes = "CustomerCookie",
+    });
+});
+
+app.MapOmni2Fa();              // staff  → /api/2fa
+app.MapOmni2Fa("customer");    // portal → /api/portal/2fa
+
+// The host's own step-up-gated endpoints declare which population they serve:
+[Omni2FaAudience("customer")]
+public sealed class CustomerCardsController : ControllerBase { … }        // MVC
+app.MapGroup("/api/portal").WithOmni2FaAudience("customer");              // minimal API
+```
+
+**An audience is (route prefix, subject namespace, auth scheme).** Those three always travel together —
+splitting them is what produced the header workaround in the first place. Mounting under the path that
+already identifies the population means the host's existing routing rules (cookie selection, CORS, an
+auth scheme chosen by path) cover the 2FA endpoints for free, with nothing for the frontend to remember.
+
+**The namespace is applied by the library, not the host.** The mount tags its endpoints with the
+audience name; `UserContextAccessor` reads that metadata and prefixes the id from the principal. Hosts
+overriding the accessor override `GetRawUserId()` and still get namespacing. Where the host talks to
+Omni2FA outside a mounted endpoint — issuing the pre-auth token at login, reading the subject back out
+of a verified-handoff token at finalize — `IOmni2FaAudienceRegistry.ToSubject` / `TryGetUserId` apply the
+same rule, so the prefix is never open-coded. `TryGetUserId` on the *default* audience rejects subjects
+carrying another audience's prefix: without that, `"customer:42"` would pass as a staff id.
+
+**Why endpoint metadata rather than a per-request resolver.** The audience is a property of the endpoint
+(this route serves customers), not of the request, so it is known at mapping time and cannot drift. It
+also travels to the host's own endpoints through an attribute — needed by `[RequireTwoFactor]`, which
+otherwise evaluates step-up against the wrong subject and would never match the caller's methods.
+
+**Per-audience scheme lives in options, not on the returned group.** `MapOmni2Fa` returns the
+`RouteGroupBuilder` so hosts can attach their own conventions, but chaining `.RequireAuthorization(…)`
+there would also cover `/challenge/*` — which runs *before* a session exists and would break login.
+`AuthenticationSchemes` / `AuthorizationPolicy` on the audience are applied only to the endpoints that
+already require a session.
+
+**Startup validation.** Names, route prefixes, and subject prefixes must be unique, and every audience
+past the default must set a route prefix. All four are `ValidateOnStart` checks: a duplicate subject
+prefix silently merges two populations' 2FA methods, which is not something to discover in production.
+
+**Single-population hosts are unaffected.** The default audience is implicit — mounted at
+`AspNetCore.RoutePrefix`, no namespace, ids stored exactly as before. `MapOmni2Fa()` with no argument
+keeps its old behaviour, and endpoint names stay bare (`listMethods`); only additional mounts suffix
+theirs (`listMethods-customer`), since endpoint names must be unique application-wide.

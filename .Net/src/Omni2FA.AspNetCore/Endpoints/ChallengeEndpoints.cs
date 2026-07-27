@@ -4,13 +4,14 @@ using Microsoft.AspNetCore.Routing;
 using Omni2FA.AspNetCore.Extensions;
 using Omni2FA.AspNetCore.Filters;
 using Omni2FA.AspNetCore.Internal;
+using Omni2FA.Core.Configuration;
 using Omni2FA.Core.Dtos;
 using Omni2FA.Core.Services.Interfaces;
 
 namespace Omni2FA.AspNetCore.Endpoints;
 
 internal static class ChallengeEndpoints {
-    public static void Map(IEndpointRouteBuilder root) {
+    public static void Map(IEndpointRouteBuilder root, Omni2FaAudienceOptions audience) {
         var group = root.MapGroup("/challenge")
             .AddEndpointFilter<PreAuthFilter>()
             .AddEndpointFilter<RateLimitFilter>();
@@ -25,7 +26,7 @@ internal static class ChallengeEndpoints {
             var result = await service.StartAsync(userId, request, cancellationToken).ConfigureAwait(false);
             return result.ToHttpResult();
         })
-        .WithName("startChallenge")
+        .WithName(EndpointNaming.For(audience, "startChallenge"))
         .WithTags("challenge")
         .Accepts<ChallengeStartRequest>("application/json")
         .Produces<ChallengeStartResponse>(StatusCodes.Status200OK)
@@ -44,7 +45,7 @@ internal static class ChallengeEndpoints {
             var result = await service.ResendAsync(userId, request, cancellationToken).ConfigureAwait(false);
             return result.ToHttpResult();
         })
-        .WithName("resendChallenge")
+        .WithName(EndpointNaming.For(audience, "resendChallenge"))
         .WithTags("challenge")
         .Accepts<ChallengeResendRequest>("application/json")
         .Produces<ChallengeStartResponse>(StatusCodes.Status200OK)
@@ -63,7 +64,7 @@ internal static class ChallengeEndpoints {
             var result = await service.VerifyAsync(userId, request, cancellationToken).ConfigureAwait(false);
             return result.ToHttpResult();
         })
-        .WithName("verifyRecoveryCode")
+        .WithName(EndpointNaming.For(audience, "verifyRecoveryCode"))
         .WithTags("challenge")
         .Accepts<RecoveryCodeVerifyRequest>("application/json")
         .Produces<VerifySuccessResponse>(StatusCodes.Status200OK)
@@ -81,7 +82,7 @@ internal static class ChallengeEndpoints {
             var result = await service.VerifyAsync(userId, request, cancellationToken).ConfigureAwait(false);
             return result.ToHttpResult();
         })
-        .WithName("verifyChallenge")
+        .WithName(EndpointNaming.For(audience, "verifyChallenge"))
         .WithTags("challenge")
         .Accepts<ChallengeVerifyRequest>("application/json")
         .Produces<VerifySuccessResponse>(StatusCodes.Status200OK)

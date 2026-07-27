@@ -3,7 +3,9 @@ using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Routing;
 using Omni2FA.AspNetCore.Extensions;
 using Omni2FA.AspNetCore.Filters;
+using Omni2FA.AspNetCore.Internal;
 using Omni2FA.AspNetCore.Services.Interfaces;
+using Omni2FA.Core.Configuration;
 using Omni2FA.Core.Dtos;
 using Omni2FA.Core.Services.Interfaces;
 
@@ -15,9 +17,9 @@ namespace Omni2FA.AspNetCore.Endpoints;
 /// verify mints a single-use step-up token instead of the login handoff token.
 /// </summary>
 internal static class StepUpEndpoints {
-    public static void Map(IEndpointRouteBuilder root) {
+    public static void Map(IEndpointRouteBuilder root, Omni2FaAudienceOptions audience) {
         var group = root.MapGroup("/stepup")
-            .RequireAuthorization()
+            .RequireOmni2FaSession(audience)
             .AddEndpointFilter<RateLimitFilter>();
 
         group.MapPost("/start", async (
@@ -29,7 +31,7 @@ internal static class StepUpEndpoints {
             var result = await service.StartAsync(user.GetCurrentUserId(), request, cancellationToken).ConfigureAwait(false);
             return result.ToHttpResult();
         })
-        .WithName("startStepUp")
+        .WithName(EndpointNaming.For(audience, "startStepUp"))
         .WithTags("stepup")
         .Accepts<ChallengeStartRequest>("application/json")
         .Produces<ChallengeStartResponse>(StatusCodes.Status200OK)
@@ -47,7 +49,7 @@ internal static class StepUpEndpoints {
             var result = await service.ResendAsync(user.GetCurrentUserId(), request, cancellationToken).ConfigureAwait(false);
             return result.ToHttpResult();
         })
-        .WithName("resendStepUp")
+        .WithName(EndpointNaming.For(audience, "resendStepUp"))
         .WithTags("stepup")
         .Accepts<ChallengeResendRequest>("application/json")
         .Produces<ChallengeStartResponse>(StatusCodes.Status200OK)
@@ -65,7 +67,7 @@ internal static class StepUpEndpoints {
             var result = await service.VerifyStepUpAsync(user.GetCurrentUserId(), request, cancellationToken).ConfigureAwait(false);
             return result.ToHttpResult();
         })
-        .WithName("verifyStepUp")
+        .WithName(EndpointNaming.For(audience, "verifyStepUp"))
         .WithTags("stepup")
         .Accepts<ChallengeVerifyRequest>("application/json")
         .Produces<StepUpVerifyResponse>(StatusCodes.Status200OK)

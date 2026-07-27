@@ -32,9 +32,15 @@ public static class ServiceCollectionExtensions {
         // Fail fast at startup on the misconfiguration that would otherwise blow up mid-login.
         options
             .Validate(o => o.PreAuth.SigningKey.Length >= 32, "Omni2Fa:PreAuth:SigningKey must be at least 32 characters (HMAC-SHA256 signing key).")
+            .Validate(HasUniqueAudienceNames, "Omni2Fa:AspNetCore:Audiences must have unique Name values.")
+            .Validate(HasUniqueAudienceRoutePrefixes, "Each Omni2Fa audience needs its own RoutePrefix — two mounts on the same path collide.")
+            .Validate(HasUniqueAudienceSubjectPrefixes, "Each Omni2Fa audience needs its own SubjectPrefix — sharing one merges two populations' 2FA methods.")
+            .Validate(NonDefaultAudiencesHaveRoutePrefix, "Every Omni2Fa audience other than 'default' must set RoutePrefix (the default one inherits Omni2Fa:AspNetCore:RoutePrefix).")
             .ValidateOnStart();
 
         services.AddHttpContextAccessor();
+
+        services.AddSingleton<IOmni2FaAudienceRegistry, Omni2FaAudienceRegistry>();
 
         services.AddSingleton<ITotpService, TotpService>();
         services.AddSingleton<ISecretProtector, DataProtectionSecretProtector>();
@@ -93,5 +99,35 @@ public static class ServiceCollectionExtensions {
         services.AddSingleton<PreAuthFilter>();
 
         return services;
+    }
+
+    private static bool HasUniqueAudienceNames(Omni2FaOptions options) {
+        var names = options.AspNetCore.Audiences.Select(a => a.Name).ToList();
+        return names.Distinct(StringComparer.OrdinalIgnoreCase).Count() == names.Count;
+    }
+
+    private static bool HasUniqueAudienceRoutePrefixes(Omni2FaOptions options) {
+        var prefixes = options.AspNetCore.Audiences
+            .Select(a => string.IsNullOrWhiteSpace(a.RoutePrefix) ? options.AspNetCore.RoutePrefix : a.RoutePrefix)
+            .ToList();
+        // The implicit default mount counts too, unless an entry named 'default' already represents it.
+        if (!options.AspNetCore.Audiences.Any(a => string.Equals(a.Name, Omni2FaAudienceOptions.DefaultName, StringComparison.OrdinalIgnoreCase))) {
+            prefixes.Add(options.AspNetCore.RoutePrefix);
+        }
+        return prefixes.Distinct(StringComparer.OrdinalIgnoreCase).Count() == prefixes.Count;
+    }
+
+    private static bool HasUniqueAudienceSubjectPrefixes(Omni2FaOptions options) {
+        var prefixes = options.AspNetCore.Audiences
+            .Select(a => a.SubjectPrefix)
+            .Where(prefix => !string.IsNullOrEmpty(prefix))
+            .ToList();
+        return prefixes.Distinct(StringComparer.Ordinal).Count() == prefixes.Count;
+    }
+
+    private static bool NonDefaultAudiencesHaveRoutePrefix(Omni2FaOptions options) {
+        return options.AspNetCore.Audiences.All(a =>
+            string.Equals(a.Name, Omni2FaAudienceOptions.DefaultName, StringComparison.OrdinalIgnoreCase)
+            || !string.IsNullOrWhiteSpace(a.RoutePrefix));
     }
 }

@@ -40,6 +40,17 @@ public class AspNetCoreOptions {
     /// <summary>Mount point for all Omni2FA endpoints. Default <c>/api/2fa</c>.</summary>
     public string RoutePrefix { get; set; } = "/api/2fa";
 
+    /// <summary>
+    /// Separately authenticating user populations — staff and customers of the same application, each
+    /// with their own login and their own identity table. Leave empty unless the host has more than one:
+    /// the default audience (mounted at <see cref="RoutePrefix"/>, ids stored as-is) always exists and
+    /// covers single-population hosts. Add an entry per additional population, then mount it with
+    /// <c>MapOmni2Fa("name")</c> and tag the host's own endpoints for that population with
+    /// <c>[Omni2FaAudience("name")]</c> / <c>WithOmni2FaAudience("name")</c>. See
+    /// <see cref="Omni2FaAudienceOptions"/>.
+    /// </summary>
+    public IList<Omni2FaAudienceOptions> Audiences { get; } = [];
+
     /// <summary>How long a pending enrollment challenge remains valid before the user must restart the ceremony.</summary>
     public TimeSpan EnrollmentTtl { get; set; } = TimeSpan.FromMinutes(10);
 

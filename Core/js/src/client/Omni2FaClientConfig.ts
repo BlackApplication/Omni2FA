@@ -25,8 +25,16 @@ export interface Omni2FaClientConfig {
      * should attach (instead of a Bearer token via <c>setSessionToken</c>). Default <c>'same-origin'</c>.
      */
     credentials?: 'omit' | 'same-origin' | 'include';
-    /** Storage key used to persist the pre-auth token. Defaults to <c>omni2fa:preauth</c>. */
+    /**
+     * Namespace for this client's storage keys — <c>omni2fa:{namespace}:preauth</c> instead of
+     * <c>omni2fa:preauth</c>. Set it when the app builds more than one client (a staff area and a customer
+     * portal, each with its own login) and the storage is shared, e.g. <c>sessionStorage</c>: without it
+     * both clients read and write the same key and the second login overwrites the first one's token.
+     * Ignored for keys given explicitly below.
+     */
+    namespace?: string;
+    /** Storage key used to persist the pre-auth token. Defaults to <c>omni2fa:preauth</c>, or <c>omni2fa:{namespace}:preauth</c>. */
     preAuthStorageKey?: string;
-    /** Storage key used to persist the host session token. Defaults to <c>omni2fa:session</c>. */
+    /** Storage key used to persist the host session token. Defaults to <c>omni2fa:session</c>, or <c>omni2fa:{namespace}:session</c>. */
     sessionStorageKey?: string;
 }

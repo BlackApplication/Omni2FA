@@ -30,8 +30,12 @@ import type { IOmni2FaClient, StepUpHandler } from './Interfaces/IOmni2FaClient'
 import type { Omni2FaClientConfig } from './Omni2FaClientConfig';
 import { STEP_UP_HEADER } from '../stepup/constants';
 
-const DEFAULT_PREAUTH_KEY = 'omni2fa:preauth';
-const DEFAULT_SESSION_KEY = 'omni2fa:session';
+const KEY_PREFIX = 'omni2fa';
+
+/** Storage key for <c>role</c>, scoped to the client's namespace when it has one. */
+function storageKey(namespace: string | undefined, role: 'preauth' | 'session'): string {
+    return namespace ? `${KEY_PREFIX}:${namespace}:${role}` : `${KEY_PREFIX}:${role}`;
+}
 
 /**
  * Extract the pathname from a URL string without constructing a `URL` (which would need an absolute
@@ -70,8 +74,8 @@ export class Omni2FaClient implements IOmni2FaClient {
 
     constructor(config: Omni2FaClientConfig) {
         this.storage = config.storage ?? new MemoryStorage();
-        this.preAuthKey = config.preAuthStorageKey ?? DEFAULT_PREAUTH_KEY;
-        this.sessionKey = config.sessionStorageKey ?? DEFAULT_SESSION_KEY;
+        this.preAuthKey = config.preAuthStorageKey ?? storageKey(config.namespace, 'preauth');
+        this.sessionKey = config.sessionStorageKey ?? storageKey(config.namespace, 'session');
         // Mount path of the API, e.g. "/api/2fa" — used to classify endpoints by their path under it.
         this.basePath = pathnameOf(config.baseUrl).replace(/\/$/, '');
         this.inner = createClient<paths>({
