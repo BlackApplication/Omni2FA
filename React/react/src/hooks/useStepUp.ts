@@ -2,6 +2,7 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { useSelector } from '@xstate/react';
 import type { StepUpActor, TwoFactorMethodDto } from '@omni2fa/core';
 import { useOmni2Fa } from './useOmni2Fa';
+import type { IUseStepUpOptions } from '../Interfaces/IUseStepUpOptions';
 import type { IUseStepUpResult } from '../Interfaces/IUseStepUpResult';
 
 /**
@@ -10,8 +11,11 @@ import type { IUseStepUpResult } from '../Interfaces/IUseStepUpResult';
  * and <c>pick</c>/<c>submit</c>) and resolves a single-use step-up token. Attach the token in the
  * <c>X-Omni2FA-StepUp</c> header on your retry — the library stays out of how you make the request.
  * The prompt reuses the same method-picker/code UI as the login challenge.
+ *
+ * The library's own gated endpoints are wired up for you: while this hook is mounted it registers
+ * <c>confirmTwoFactor</c> on the client (opt out with <c>{ handleClientStepUp: false }</c>).
  */
-export function useStepUp(): IUseStepUpResult {
+export function useStepUp(options?: IUseStepUpOptions): IUseStepUpResult {
     const omni = useOmni2Fa();
     const actor: StepUpActor = omni.stepUp;
 
@@ -52,6 +56,15 @@ export function useStepUp(): IUseStepUpResult {
             }),
         [actor],
     );
+
+    const handleClientStepUp = options?.handleClientStepUp ?? true;
+    useEffect(() => {
+        if (!handleClientStepUp) {
+            return;
+        }
+        omni.client.setStepUpHandler(confirmTwoFactor);
+        return () => omni.client.setStepUpHandler(null);
+    }, [handleClientStepUp, omni, confirmTwoFactor]);
 
     return {
         confirmTwoFactor,

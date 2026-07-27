@@ -79,6 +79,20 @@ export class Omni2FaClient implements IOmni2FaClient {
             fetch: config.fetch ?? globalThis.fetch.bind(globalThis),
             ...(config.credentials ? { credentials: config.credentials } : {}),
         });
+        // Registered before the auth middleware so a host-supplied Authorization header still wins.
+        if (config.headers) {
+            const configured = config.headers;
+            const resolveHeaders = typeof configured === 'function' ? configured : () => configured;
+            this.inner.use({
+                onRequest: ({ request }) => {
+                    const extra = resolveHeaders();
+                    if (extra) {
+                        new Headers(extra).forEach((value, key) => request.headers.set(key, value));
+                    }
+                    return request;
+                },
+            });
+        }
         this.inner.use({
             onRequest: ({ request }) => {
                 // A custom fetch / host-set header always wins.

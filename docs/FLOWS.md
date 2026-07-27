@@ -163,7 +163,7 @@ The `useStepUp` hook's `confirmTwoFactor(methods)` runs the prompt and resolves 
 - **Reactive** (diagram above) — react to the server's `403 STEP_UP_REQUIRED`, ideally in one central interceptor (next to your `401` handling), so every protected endpoint is covered at once. Methods come from `details.availableMethods`.
 - **Proactive** — when you already know an action needs 2FA, confirm up-front (methods from `useMethods()` / `listMethods`) and send the request already carrying the header, skipping the 403 round-trip. You decide whether to prompt (`methods.length > 0`); if the user has no 2FA, just send — the server passes it through.
 
-For Omni2FA's **own** destructive endpoints (remove method, regenerate recovery codes, enroll a new factor — opt-in via `StepUp.RequireTwoFactorTo*`), the client handles the same 403 → confirm → retry loop itself once you register `omni.client.setStepUpHandler(confirmTwoFactor)`; the hooks and direct client calls then prompt and retry transparently.
+For Omni2FA's **own** destructive endpoints (remove method, regenerate recovery codes, enroll a new factor — opt-in via `StepUp.RequireTwoFactorTo*`), the client handles the same 403 → confirm → retry loop itself: a mounted `useStepUp()` registers its `confirmTwoFactor` on the client (React does it for you; other adapters call `omni.client.setStepUpHandler(confirmTwoFactor)`), and the hooks and direct client calls then prompt and retry transparently.
 
 ### Notes
 

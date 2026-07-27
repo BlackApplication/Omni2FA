@@ -23,6 +23,7 @@ export type { IUseChallengeResult, ChallengeStatus } from './Interfaces/IUseChal
 
 export { useStepUp } from './hooks/useStepUp';
 export { useStepUpSelector } from './hooks/useStepUpSelector';
+export type { IUseStepUpOptions } from './Interfaces/IUseStepUpOptions';
 export type { IUseStepUpResult, StepUpStatus } from './Interfaces/IUseStepUpResult';
 
 export { useMethods } from './hooks/useMethods';
