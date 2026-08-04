@@ -11,4 +11,10 @@ public class StepUpVerifyResponse {
 
     /// <summary>When <see cref="StepUpToken"/> expires (UTC).</summary>
     public required DateTime ExpiresAt { get; init; }
+
+    /// <summary>
+    /// Until when the token also satisfies <em>further</em> protected calls, so the frontend can act again
+    /// without prompting. Null unless the host set <see cref="Configuration.StepUpOptions.GraceWindow"/>.
+    /// </summary>
+    public DateTime? GraceUntil { get; init; }
 }

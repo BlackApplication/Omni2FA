@@ -65,4 +65,14 @@ export interface IOmni2FaClient {
      * header. Pass the React <c>useStepUp().confirmTwoFactor</c> here, or null to clear.
      */
     setStepUpHandler(handler: StepUpHandler | null): void;
+
+    /**
+     * A step-up token still inside its grace window, or null — attach it to act without prompting again.
+     * Filled from a step-up confirmation or from a 2FA login, and only when the backend grants a window.
+     * Call it before showing a prompt.
+     */
+    peekStepUpToken(): string | null;
+
+    /** Drop the cached step-up token. Automatic on <c>setSessionToken</c> and on <c>403 STEP_UP_REQUIRED</c>. */
+    clearStepUpToken(): void;
 }

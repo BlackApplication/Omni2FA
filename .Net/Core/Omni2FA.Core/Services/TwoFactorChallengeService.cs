@@ -23,6 +23,7 @@ public class TwoFactorChallengeService : ITwoFactorChallengeService {
     private readonly IOmni2FaAuditSink _audit;
     private readonly IPreAuthTokenIssuer _preAuth;
     private readonly TimeSpan _webAuthnTtl;
+    private readonly TimeSpan _graceWindow;
 
     public TwoFactorChallengeService(
         ITwoFactorMethodStore methods,
@@ -43,6 +44,7 @@ public class TwoFactorChallengeService : ITwoFactorChallengeService {
         _audit = audit;
         _preAuth = preAuth;
         _webAuthnTtl = options.Value.AspNetCore.EnrollmentTtl;
+        _graceWindow = options.Value.StepUp.GraceWindow;
     }
 
     public async Task<Result<ChallengeStartResponse>> StartAsync(string userId, ChallengeStartRequest request, CancellationToken cancellationToken = default) {
@@ -92,10 +94,23 @@ public class TwoFactorChallengeService : ITwoFactorChallengeService {
         }
 
         var handoff = _preAuth.IssueVerified(userId);
+        if (_graceWindow <= TimeSpan.Zero) {
+            return Result<VerifySuccessResponse>.Success(new VerifySuccessResponse {
+                UserId = userId,
+                VerifiedToken = handoff.Token,
+                ExpiresAt = handoff.ExpiresAt,
+            });
+        }
+
+        // The login ceremony is a 2FA proof too — carry it into the barrier so the first protected page
+        // does not ask again seconds later.
+        var stepUp = _preAuth.IssueStepUp(userId);
         return Result<VerifySuccessResponse>.Success(new VerifySuccessResponse {
             UserId = userId,
             VerifiedToken = handoff.Token,
             ExpiresAt = handoff.ExpiresAt,
+            StepUpToken = stepUp.Token,
+            StepUpGraceUntil = DateTime.UtcNow.Add(_graceWindow),
         });
     }
 
@@ -113,6 +128,7 @@ public class TwoFactorChallengeService : ITwoFactorChallengeService {
         return Result<StepUpVerifyResponse>.Success(new StepUpVerifyResponse {
             StepUpToken = token.Token,
             ExpiresAt = token.ExpiresAt,
+            GraceUntil = _graceWindow > TimeSpan.Zero ? DateTime.UtcNow.Add(_graceWindow) : null,
         });
     }
 

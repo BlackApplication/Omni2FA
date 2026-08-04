@@ -198,6 +198,18 @@ Now `omni.client.removeMethod(...)` / `regenerateRecoveryCodes()` / enrollment p
 
 The step-up token is **single-use** — one confirmed 2FA per protected action. Consumed token ids are kept **in memory by default**, so on a multi-instance deployment a token spent on one node isn't known to the others — a brief replay window within the token TTL. Register a shared `IStepUpNonceStore` (e.g. Redis) to close it. Details in [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md).
 
+**Asked too often?** A user managing their 2FA hits three prompts in a row, and someone who just signed in with 2FA gets asked again the moment they open a protected page. One **grace window** fixes both, off by default:
+
+```jsonc
+"StepUp": { "GraceWindow": "00:01:00" }
+```
+
+A passed 2FA challenge counts for that long, whether it was a step-up confirmation or the login itself — both prove the same thing, so there is one setting, not two.
+
+Nothing to configure on the frontend — the server returns the window with each confirmation and the client honours it.
+
+A **recovery-code login never** gets a window: that is the flow of someone who lost their factors, and equally of someone who took the account over. The window rides inside the token, so only the browser that confirmed skips the prompt — another session of the same user still confirms, which is the point: a per-user "confirmed recently" flag would hand the free pass to a stolen session too. Keep the window in minutes; `StepUp.Ttl` is uncapped, so setting everything to hours turns the barrier into a formality. This is **not** "remember this browser" — that's roadmap v1.3.
+
 ---
 
 ## Two logins in one app (staff + customers)
@@ -248,6 +260,7 @@ Single-login apps ignore all of this: the default audience is implicit and nothi
 | `PreAuth.Ttl` | 5 min | Pre-auth ticket lifetime |
 | `PreAuth.VerifiedTtl` | 2 min | Verified-handoff token lifetime (the finalize proof) |
 | `StepUp.Ttl` | 5 min | Step-up token lifetime — gap allowed between confirming 2FA and the action |
+| `StepUp.GraceWindow` | `0` (off) | How long a passed 2FA challenge (step-up **or** login) covers further protected actions; must be ≤ `StepUp.Ttl`. Never granted for a recovery-code login |
 | `StepUp.RequireTwoFactorTo{Enroll,RemoveMethod,RegenerateRecoveryCodes}` | `false` | Gate the library's own destructive endpoints with step-up (opt-in, per action) |
 | `Totp.Issuer` | `Omni2FA` | Name shown in authenticator apps |
 | `Email.Smtp.*` / `Email.BackgroundDelivery` | — / `true` | SMTP transport; codes sent on a background worker by default |

@@ -6,7 +6,7 @@ This document describes the user-facing flows Omni2FA orchestrates. The OpenAPI 
 
 - **Pre-auth token** — short-lived (~3-5 min) JWT issued after password verification but before 2FA verification. Carries `userId` + `purpose=2fa-pending`. The frontend includes it in every step of the 2FA ceremony so the server knows whose flow this is without leaking identity to the URL/storage.
 - **Verified-handoff token** — short-lived (~2 min) JWT returned by `challenge/verify` and `challenge/recovery-code` on success. Carries `userId` + `purpose=2fa-verified`. The frontend forwards it to the host's finalize endpoint, which validates it (`ValidateVerified`) to mint the session. This is the proof 2FA actually passed — the host never infers success from audit events or trusts the client. Same token for code, passkey, and recovery-code.
-- **Step-up token** — short-lived (default 5 min) **single-use** JWT returned by `stepup/verify`. Carries `userId` + `purpose=2fa-stepup`. The frontend attaches it in the `X-Omni2FA-StepUp` header when retrying a step-up-protected action; the gate validates it, checks the subject matches the caller, and consumes its id so it can't be reused.
+- **Step-up token** — short-lived (default 5 min) **single-use** JWT returned by `stepup/verify`. Carries `userId` + `purpose=2fa-stepup`. The frontend attaches it in the `X-Omni2FA-StepUp` header when retrying a step-up-protected action; the gate validates it, checks the subject matches the caller, and consumes its id so it can't be reused — unless the host opened a grace window (`StepUp.GraceWindow`, off by default), during which the same token answers for further actions.
 - **Challenge** — server-side state for a 2FA ceremony in progress. Stored in `Omni2FaChallenges` table: hashed OTP for email, challenge bytes for WebAuthn, expiry, consumed flag. Consumed on first successful verification.
 - **Method** — an enrolled 2FA factor on a user. Rows in `Omni2FaMethods`: type (Totp / Email / WebAuthn), method-specific fields, optional human-readable name.
 - **Recovery code** — single-use code that substitutes for any 2FA method during login. Generated on first method enrollment, hashed at rest, shown to the user **once**.
@@ -168,13 +168,14 @@ For Omni2FA's **own** destructive endpoints (remove method, regenerate recovery 
 ### Notes
 
 - **Single-use.** Each step-up token satisfies exactly one protected call (the spent id is recorded until expiry), so every sensitive action triggers its own fresh confirmation.
+- **Grace window (opt-in, off by default).** `StepUp.GraceWindow` keeps a passed 2FA challenge usable for further actions — either ceremony counts, so the first protected page after signing in does not ask again either. After the window the token falls back to its single use. A recovery-code login never grants one. The window is carried in the token, so only the browser that confirmed benefits — another session of the same user still confirms. The server returns it (`graceUntil` / `stepUpGraceUntil`) and the client caches the token in memory, attaching it up front and dropping it on any `403 STEP_UP_REQUIRED`; with `useStepUp`, `confirmTwoFactor` resolves from that cache without showing the prompt.
 - **Identity-bound.** The gate rejects a token whose subject ≠ the authenticated caller — a stolen token can't be replayed against another account.
 - **Multi-instance.** The default consumed-id store is in-memory; across nodes a token spent on one isn't seen by the others (replay window ≤ token TTL). Register a shared `IStepUpNonceStore` to close it.
 - **No bypass for enrolled users** — the only pass-through is "no method enrolled".
 
 ---
 
-## 5. Trusted devices (planned v1.1, not in v0.x)
+## 5. Trusted devices (planned v1.3, not in v0.x)
 
 Design boundary today: the pre-auth flow above must not preclude adding a "trusted device cookie" later. Sketch:
 

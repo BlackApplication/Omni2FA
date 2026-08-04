@@ -14,6 +14,9 @@ import type { IUseStepUpResult } from '../Interfaces/IUseStepUpResult';
  *
  * The library's own gated endpoints are wired up for you: while this hook is mounted it registers
  * <c>confirmTwoFactor</c> on the client (opt out with <c>{ handleClientStepUp: false }</c>).
+ *
+ * When the backend grants a grace window, <c>confirmTwoFactor</c> resolves from the last confirmation —
+ * a step-up or the 2FA login itself — while it is still inside that window, instead of prompting again.
  */
 export function useStepUp(options?: IUseStepUpOptions): IUseStepUpResult {
     const omni = useOmni2Fa();
@@ -47,14 +50,20 @@ export function useStepUp(options?: IUseStepUpOptions): IUseStepUpResult {
     }, [status, context.stepUpToken, settle]);
 
     const confirmTwoFactor = useCallback(
-        (available: TwoFactorMethodDto[]) =>
-            new Promise<string | null>((resolve) => {
+        (available: TwoFactorMethodDto[]) => {
+            // Null unless the backend granted a window, so prompting stays the default.
+            const cached = omni.client.peekStepUpToken();
+            if (cached) {
+                return Promise.resolve<string | null>(cached);
+            }
+            return new Promise<string | null>((resolve) => {
                 setMethods(available);
                 actor.send({ type: 'reset' });
                 setActive(true);
                 pending.current = resolve;
-            }),
-        [actor],
+            });
+        },
+        [actor, omni],
     );
 
     const handleClientStepUp = options?.handleClientStepUp ?? true;

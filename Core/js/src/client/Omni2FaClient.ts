@@ -71,6 +71,8 @@ export class Omni2FaClient implements IOmni2FaClient {
     private readonly basePath: string;
     private readonly inner: FetchClient;
     private stepUpHandler: StepUpHandler | null = null;
+    // Never in `storage` — a reusable confirmation must not outlive the tab.
+    private cachedStepUp: { token: string; expiresAt: number } | null = null;
 
     constructor(config: Omni2FaClientConfig) {
         this.storage = config.storage ?? new MemoryStorage();
@@ -129,6 +131,12 @@ export class Omni2FaClient implements IOmni2FaClient {
     }
 
     setSessionToken(token: string | null): void {
+        // Only on sign-out: a login grants its own confirmation just before the host sets the session,
+        // and clearing unconditionally here would throw that away. Swapping users is safe without it —
+        // the server binds every token to its subject and rejects it for anyone else.
+        if (token === null || token.length === 0) {
+            this.clearStepUpToken();
+        }
         this.setToken(this.sessionKey, token);
     }
 
@@ -140,25 +148,60 @@ export class Omni2FaClient implements IOmni2FaClient {
         this.stepUpHandler = handler;
     }
 
+    peekStepUpToken(): string | null {
+        if (this.cachedStepUp === null) {
+            return null;
+        }
+        if (Date.now() >= this.cachedStepUp.expiresAt) {
+            this.cachedStepUp = null;
+            return null;
+        }
+        return this.cachedStepUp.token;
+    }
+
+    clearStepUpToken(): void {
+        this.cachedStepUp = null;
+    }
+
+    /**
+     * Remember a confirmation for as long as the server says it stays usable. The server is the only
+     * source of that instant, so there is nothing to configure here and nothing to keep in sync.
+     */
+    private cacheStepUpToken(token: string, graceUntil: string | undefined): void {
+        if (graceUntil === undefined) {
+            return;
+        }
+        const expiresAt = Date.parse(graceUntil);
+        if (Number.isNaN(expiresAt) || expiresAt <= Date.now()) {
+            return;
+        }
+        this.cachedStepUp = { token, expiresAt };
+    }
+
     /**
      * Run a request and, if it comes back 403 STEP_UP_REQUIRED with a handler registered, confirm 2FA
      * and retry once with the step-up header. Used by the library's own sensitive endpoints; other calls
-     * invoke openapi-fetch directly.
+     * invoke openapi-fetch directly. A confirmation still inside the grace window is attached up front,
+     * so a run of sensitive actions costs one prompt.
      */
     private async sendWithStepUp<T>(
         invoke: (headers: Record<string, string>) => Promise<{ data?: T; error?: ErrorResponse; response: Response }>,
     ): Promise<{ data?: T; error?: ErrorResponse; response: Response }> {
-        const first = await invoke({});
+        const cached = this.peekStepUpToken();
+        const first = await invoke(cached ? { [STEP_UP_HEADER]: cached } : {});
         if (
             first.error !== undefined &&
             first.response.status === 403 &&
-            first.error.code === Omni2FaErrorCodes.StepUpRequired &&
-            this.stepUpHandler !== null
+            first.error.code === Omni2FaErrorCodes.StepUpRequired
         ) {
-            const methods = (first.error.details?.availableMethods as TwoFactorMethodDto[] | undefined) ?? [];
-            const token = await this.stepUpHandler(methods);
-            if (token) {
-                return invoke({ [STEP_UP_HEADER]: token });
+            // The server did not accept what we had — drop it so the prompt comes next, here and in adapters.
+            this.clearStepUpToken();
+            if (this.stepUpHandler !== null) {
+                const methods = (first.error.details?.availableMethods as TwoFactorMethodDto[] | undefined) ?? [];
+                const token = await this.stepUpHandler(methods);
+                if (token) {
+                    return invoke({ [STEP_UP_HEADER]: token });
+                }
             }
         }
         return first;
@@ -234,6 +277,10 @@ export class Omni2FaClient implements IOmni2FaClient {
 
     async verifyChallenge(request: ChallengeVerifyRequest): Promise<ClientCall<VerifySuccessResponse>> {
         const { data, error, response } = await this.inner.POST('/challenge/verify', { body: request });
+        // The login just proved 2FA — carry that into the step-up barrier if the backend grants it.
+        if (data?.stepUpToken !== undefined) {
+            this.cacheStepUpToken(data.stepUpToken, data.stepUpGraceUntil);
+        }
         return this.toCall(data, error, response);
     }
 
@@ -254,6 +301,9 @@ export class Omni2FaClient implements IOmni2FaClient {
 
     async verifyStepUp(request: ChallengeVerifyRequest): Promise<ClientCall<StepUpVerifyResponse>> {
         const { data, error, response } = await this.inner.POST('/stepup/verify', { body: request });
+        if (data !== undefined) {
+            this.cacheStepUpToken(data.stepUpToken, data.graceUntil);
+        }
         return this.toCall(data, error, response);
     }
 

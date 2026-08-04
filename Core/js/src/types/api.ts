@@ -468,19 +468,38 @@ export interface components {
              * @description When `verifiedToken` expires (UTC).
              */
             expiresAt: string;
+            /**
+             * @description Step-up token granted by the login itself, so a user who just proved 2FA is not asked
+             *     again on the first protected action. Present only when the backend set a grace
+             *     window, and never for a recovery-code login. Unrelated to `verifiedToken`: that one
+             *     finalizes the session, this one satisfies the step-up barrier until `stepUpGraceUntil`.
+             */
+            stepUpToken?: string;
+            /**
+             * Format: date-time
+             * @description Until when `stepUpToken` keeps satisfying protected calls (UTC).
+             */
+            stepUpGraceUntil?: string;
         };
         /**
-         * @description Returned by `/stepup/verify` on success. `stepUpToken` is single-use — attach it in the
-         *     `X-Omni2FA-StepUp` header when retrying the protected request; it satisfies exactly one call.
+         * @description Returned by `/stepup/verify` on success. Attach `stepUpToken` in the `X-Omni2FA-StepUp` header
+         *     when retrying the protected request. It satisfies exactly one call, unless `graceUntil` is
+         *     present — until that instant it satisfies further calls too.
          */
         StepUpVerifyResponse: {
-            /** @description Single-use proof the step-up challenge passed, presented in the step-up request header. */
+            /** @description Proof the step-up challenge passed, presented in the step-up request header. */
             stepUpToken: string;
             /**
              * Format: date-time
              * @description When `stepUpToken` expires (UTC).
              */
             expiresAt: string;
+            /**
+             * Format: date-time
+             * @description Until when the token also satisfies further protected calls, so the frontend can act
+             *     again without prompting. Present only when the backend set a grace window.
+             */
+            graceUntil?: string;
         };
         EmailEnrollStartRequest: {
             /**

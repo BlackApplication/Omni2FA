@@ -2,7 +2,7 @@ openapi: 3.1.0
 
 info:
   title: Omni2FA API
-  version: 0.8.0
+  version: 0.8.1
   summary: Cross-stack HTTP contract for multi-method 2FA.
   description: |
     The HTTP contract that any backend implementing Omni2FA must satisfy, and
@@ -841,21 +841,39 @@ components:
           type: string
           format: date-time
           description: When `verifiedToken` expires (UTC).
+        stepUpToken:
+          type: string
+          description: |
+            Step-up token granted by the login itself, so a user who just proved 2FA is not asked
+            again on the first protected action. Present only when the backend set a grace
+            window, and never for a recovery-code login. Unrelated to `verifiedToken`: that one
+            finalizes the session, this one satisfies the step-up barrier until `stepUpGraceUntil`.
+        stepUpGraceUntil:
+          type: string
+          format: date-time
+          description: Until when `stepUpToken` keeps satisfying protected calls (UTC).
 
     StepUpVerifyResponse:
       type: object
       required: [stepUpToken, expiresAt]
       description: |
-        Returned by `/stepup/verify` on success. `stepUpToken` is single-use — attach it in the
-        `X-Omni2FA-StepUp` header when retrying the protected request; it satisfies exactly one call.
+        Returned by `/stepup/verify` on success. Attach `stepUpToken` in the `X-Omni2FA-StepUp` header
+        when retrying the protected request. It satisfies exactly one call, unless `graceUntil` is
+        present — until that instant it satisfies further calls too.
       properties:
         stepUpToken:
           type: string
-          description: Single-use proof the step-up challenge passed, presented in the step-up request header.
+          description: Proof the step-up challenge passed, presented in the step-up request header.
         expiresAt:
           type: string
           format: date-time
           description: When `stepUpToken` expires (UTC).
+        graceUntil:
+          type: string
+          format: date-time
+          description: |
+            Until when the token also satisfies further protected calls, so the frontend can act
+            again without prompting. Present only when the backend set a grace window.
 
     # --- Email enrollment ---
 

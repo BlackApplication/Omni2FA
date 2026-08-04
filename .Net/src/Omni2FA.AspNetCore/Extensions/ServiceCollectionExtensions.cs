@@ -36,6 +36,8 @@ public static class ServiceCollectionExtensions {
             .Validate(HasUniqueAudienceRoutePrefixes, "Each Omni2Fa audience needs its own RoutePrefix — two mounts on the same path collide.")
             .Validate(HasUniqueAudienceSubjectPrefixes, "Each Omni2Fa audience needs its own SubjectPrefix — sharing one merges two populations' 2FA methods.")
             .Validate(NonDefaultAudiencesHaveRoutePrefix, "Every Omni2Fa audience other than 'default' must set RoutePrefix (the default one inherits Omni2Fa:AspNetCore:RoutePrefix).")
+            .Validate(o => o.StepUp.GraceWindow >= TimeSpan.Zero, "Omni2Fa:StepUp:GraceWindow must not be negative (zero means every sensitive action confirms separately).")
+            .Validate(o => o.StepUp.GraceWindow <= o.StepUp.Ttl, "Omni2Fa:StepUp:GraceWindow must not exceed Omni2Fa:StepUp:Ttl — the token expires first, so the longer window is a lie.")
             .ValidateOnStart();
 
         services.AddHttpContextAccessor();

@@ -2,6 +2,61 @@
 
 All notable changes to Omni2FA will be documented in this file. Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); versions follow [SemVer](https://semver.org/).
 
+## [0.10.1] — 2026-08-04
+
+Stops step-up from asking the same person the same question over and over. Two complaints, one
+mechanism: managing your 2FA meant confirming three times in a row, and signing in with 2FA then
+opening a protected page meant confirming twice within seconds. A passed 2FA challenge — a step-up
+ceremony *or* the login itself — now counts for a configurable window. **The window defaults to
+off**, so a host that changes nothing sees the previous behavior exactly. Purely additive: the two
+success responses gain optional fields, so OpenAPI is a patch to `0.8.1`.
+
+### Added
+- **`StepUp.GraceWindow` (`Omni2FA.Core`)** — how long a passed 2FA challenge keeps satisfying
+  protected calls before prompting again (default `TimeSpan.Zero` = every action confirms separately;
+  30–120s is the useful range). `StepUpEvaluator` returns `Satisfied` without spending the nonce inside
+  the window, so the token keeps its single use for after it. One setting covers both ceremonies —
+  a step-up confirmation and a 2FA login prove the same thing, so they are timed the same.
+- **A 2FA login now clears the barrier for the same window** — `/challenge/verify` mints a step-up
+  token alongside the handoff token and returns it as `stepUpToken` + `stepUpGraceUntil`, so opening a
+  protected page right after signing in no longer asks a second time within seconds.
+- **`StepUpVerifyResponse.graceUntil`** — until when the token keeps satisfying protected calls. The
+  server is the only source of the window, so frontends need no matching setting.
+- **`peekStepUpToken()` / `clearStepUpToken()` (`@omni2fa/core`)** — the live confirmation, for
+  adapters and for hosts driving step-up by hand. The client caches it **in memory only** (never
+  `storage`), fills it from both `verifyStepUp` and `verifyChallenge`, and drops it on sign-out
+  (`setSessionToken(null)`) and on any `403 STEP_UP_REQUIRED`.
+- **`useStepUp` (`@omni2fa/react`)** — `confirmTwoFactor` resolves from a live confirmation instead of
+  showing the prompt. No API change; nothing to do in host code.
+
+### Security
+- **A recovery-code login never grants the window.** That is the flow an attacker who has taken the
+  account over uses, and the first thing they do is remove the owner's methods — so
+  `/challenge/recovery-code` returns no step-up token regardless of `GraceWindow`.
+- The window is carried **inside the token** (an `omni2fa_grace_until` claim), not as a server-side
+  "this user confirmed recently" record. A per-user record would extend the free pass to every session
+  of that user — including a stolen one, which is the exact threat step-up answers. In the token it can
+  only be reused by the browser that confirmed, and the evaluator still rejects a token whose subject
+  isn't the caller. The residual cost is that script execution in that page gets a reusable
+  confirmation for the window's duration rather than a single-use one.
+- The window is validated at startup to be ≤ `StepUp.Ttl`. Note that `Ttl` itself is uncapped, so a
+  host that sets both to hours turns the barrier into a formality — keep the window in minutes.
+- `setSessionToken` clears the cached confirmation only when signing *out*. Clearing it on every call
+  would discard the token the login just granted; swapping users without signing out is safe anyway,
+  since the server binds every token to its subject.
+
+### Changed
+- `examples/full` turns the window on (`"GraceWindow": "00:01:00"`) — all three of its 2FA actions are
+  gated, so it's where the friction shows.
+- Docs (`README`, `ARCHITECTURE`, `ASPNETCORE`, `FLOWS`) updated; `FLOWS` §5 corrected to say trusted
+  devices are v1.3, matching `ROADMAP` (it said v1.1).
+
+### Migration
+- Nothing to do — the window defaults to off and every new response field is optional.
+- The in-memory cache dies with the tab. A host that does a **full page reload** after login (rather
+  than an SPA route change) loses the login-granted confirmation and will still prompt; persisting it
+  is deliberately not offered, because a reusable confirmation must not outlive the tab.
+
 ## [0.10.0] — 2026-07-27
 
 Multi-audience support: an application that signs in more than one population (staff and customers, with

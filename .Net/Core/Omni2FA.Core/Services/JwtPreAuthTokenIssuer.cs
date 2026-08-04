@@ -1,3 +1,4 @@
+using System.Globalization;
 using System.IdentityModel.Tokens.Jwt;
 using System.Security.Claims;
 using System.Text;
@@ -25,8 +26,15 @@ public class JwtPreAuthTokenIssuer : IPreAuthTokenIssuer {
     /// <summary>Value of <see cref="PurposeClaim"/> for step-up (action-confirmation) tokens.</summary>
     public const string PurposeStepUpValue = "2fa-stepup";
 
+    /// <summary>
+    /// Claim carrying the end of a step-up token's grace window as a NumericDate. Present only when the
+    /// host configured <see cref="StepUpOptions.GraceWindow"/>; absent means single-use from issue.
+    /// </summary>
+    public const string GraceUntilClaim = "omni2fa_grace_until";
+
     private readonly PreAuthOptions _options;
     private readonly TimeSpan _stepUpTtl;
+    private readonly TimeSpan _stepUpGraceWindow;
     private readonly SigningCredentials _signingCredentials;
     private readonly TokenValidationParameters _validationParameters;
     private readonly JwtSecurityTokenHandler _handler = new() {
@@ -39,6 +47,7 @@ public class JwtPreAuthTokenIssuer : IPreAuthTokenIssuer {
     public JwtPreAuthTokenIssuer(IOptions<Omni2FaOptions> options) {
         _options = options.Value.PreAuth;
         _stepUpTtl = options.Value.StepUp.Ttl;
+        _stepUpGraceWindow = options.Value.StepUp.GraceWindow;
         var keyBytes = Encoding.UTF8.GetBytes(_options.SigningKey);
         var signingKey = new SymmetricSecurityKey(keyBytes);
         _signingCredentials = new SigningCredentials(signingKey, SecurityAlgorithms.HmacSha256);
@@ -58,7 +67,15 @@ public class JwtPreAuthTokenIssuer : IPreAuthTokenIssuer {
 
     public PreAuthTokenInfo IssueVerified(string userId) => CreateSignedToken(userId, PurposeVerifiedValue, _options.VerifiedTtl);
 
-    public PreAuthTokenInfo IssueStepUp(string userId) => CreateSignedToken(userId, PurposeStepUpValue, _stepUpTtl);
+    public PreAuthTokenInfo IssueStepUp(string userId) {
+        if (_stepUpGraceWindow <= TimeSpan.Zero) {
+            return CreateSignedToken(userId, PurposeStepUpValue, _stepUpTtl);
+        }
+        // In the token, not a per-user record: only the browser that confirmed can reuse it.
+        var graceUntil = DateTimeOffset.UtcNow.Add(_stepUpGraceWindow).ToUnixTimeSeconds();
+        var graceClaim = new Claim(GraceUntilClaim, graceUntil.ToString(CultureInfo.InvariantCulture), ClaimValueTypes.Integer64);
+        return CreateSignedToken(userId, PurposeStepUpValue, _stepUpTtl, graceClaim);
+    }
 
     public string? ValidateAndGetUserId(string token) => Validate(token, PurposeValue);
 
@@ -78,24 +95,36 @@ public class JwtPreAuthTokenIssuer : IPreAuthTokenIssuer {
             if (string.IsNullOrWhiteSpace(sub) || string.IsNullOrWhiteSpace(jti)) {
                 return null;
             }
-            return new StepUpTokenClaims(sub, jti, validated.ValidTo);
+            return new StepUpTokenClaims(sub, jti, validated.ValidTo, ReadGraceUntil(principal));
         } catch {
             return null;
         }
     }
 
+    /// <summary>Read the grace-window claim, if the token carries one. Anything unparseable reads as absent (single-use).</summary>
+    private static DateTime? ReadGraceUntil(ClaimsPrincipal principal) {
+        var raw = principal.FindFirst(GraceUntilClaim)?.Value;
+        if (!long.TryParse(raw, CultureInfo.InvariantCulture, out var epoch)) {
+            return null;
+        }
+        return DateTimeOffset.FromUnixTimeSeconds(epoch).UtcDateTime;
+    }
+
     /// <summary>Build, sign, and encode a JWT for the user carrying the given purpose claim and lifetime.</summary>
-    private PreAuthTokenInfo CreateSignedToken(string userId, string purpose, TimeSpan ttl) {
+    private PreAuthTokenInfo CreateSignedToken(string userId, string purpose, TimeSpan ttl, Claim? extraClaim = null) {
         if (string.IsNullOrWhiteSpace(userId)) {
             throw new ArgumentException("userId must not be empty.", nameof(userId));
         }
         var now = DateTime.UtcNow;
         var expires = now.Add(ttl);
-        var claims = new[] {
+        var claims = new List<Claim> {
             new Claim(JwtRegisteredClaimNames.Sub, userId),
             new Claim(PurposeClaim, purpose),
             new Claim(JwtRegisteredClaimNames.Jti, Guid.NewGuid().ToString()),
         };
+        if (extraClaim is not null) {
+            claims.Add(extraClaim);
+        }
         var token = new JwtSecurityToken(
             issuer: _options.Issuer,
             audience: _options.Audience,

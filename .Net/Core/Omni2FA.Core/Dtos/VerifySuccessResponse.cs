@@ -13,4 +13,15 @@ public class VerifySuccessResponse {
 
     /// <summary>When <see cref="VerifiedToken"/> expires (UTC).</summary>
     public required DateTime ExpiresAt { get; init; }
+
+    /// <summary>
+    /// Step-up token granted by the login itself, so a user who just proved 2FA is not asked again on the
+    /// first protected action. Null unless the host set <see cref="Configuration.StepUpOptions.GraceWindow"/>,
+    /// and never issued for a recovery-code login. Unrelated to <see cref="VerifiedToken"/> — that one
+    /// finalizes the session, this one satisfies the step-up barrier until <see cref="StepUpGraceUntil"/>.
+    /// </summary>
+    public string? StepUpToken { get; init; }
+
+    /// <summary>Until when <see cref="StepUpToken"/> keeps satisfying protected calls (UTC). Null when there is no token.</summary>
+    public DateTime? StepUpGraceUntil { get; init; }
 }
