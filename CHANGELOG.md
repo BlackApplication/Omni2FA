@@ -2,6 +2,33 @@
 
 All notable changes to Omni2FA will be documented in this file. Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); versions follow [SemVer](https://semver.org/).
 
+## [0.10.2] — 2026-08-14 (.NET packages only)
+
+Makes the OTP email composable against a database, and gives the built-in one a design worth sending.
+Nothing on the wire changes — the OpenAPI contract and the npm packages stay at `0.10.1`.
+
+### Changed
+- **`IEmailMessageBuilder.BuildOtpMessage` → `BuildOtpMessageAsync(recipient, code, validFor, cancellationToken)`.**
+  A localized email needs the recipient's language and display name, and both live in the host's database —
+  a synchronous seam left only two ways out: block a request thread on `.GetAwaiter().GetResult()`, or drop
+  the localization. The call site inside `EmailOtpService.IssueAsync` was already async, so awaiting it costs
+  nothing. A synchronous composer is only enough for constant text.
+- **The default email got a real layout** — 600px card on a tinted page, accent rule, badge + heading, the code
+  in a panel in monospace at 30px with wide tracking, a divider, and a footer carrying the brand name and the
+  "do not reply" notice. Table-based with inline styles only (Outlook ignores `<style>` blocks, Gmail strips them),
+  wrapped in a full HTML document with a hidden preheader line — inbox previews now read
+  "Your code expires in 10 minutes." instead of the first sentence of the body. The plain-text alternative was
+  rewritten to the same structure. The brand shown in the footer is `Email.FromName`, falling back to `Totp.Issuer`.
+- Code and brand name are HTML-encoded; the code is never put in the preheader, so it stays out of lock-screen
+  notifications and inbox list previews.
+
+### Migration
+- **Only hosts that registered their own `IEmailMessageBuilder` are affected**, and only at compile time: rename
+  the method to `BuildOtpMessageAsync`, return `Task<EmailMessage>`, take a `CancellationToken`. A composer that
+  needs no I/O ends with `return Task.FromResult(message);`. Hosts on the default builder change nothing.
+- The default email looks different. A host that had standardized on the old two-paragraph markup should register
+  its own builder — which is now the same amount of work as before, plus the ability to await.
+
 ## [0.10.1] — 2026-08-04
 
 Stops step-up from asking the same person the same question over and over. Two complaints, one

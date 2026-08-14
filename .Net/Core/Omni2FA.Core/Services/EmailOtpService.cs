@@ -25,7 +25,7 @@ public class EmailOtpService : IEmailOtpService {
         challenge.CreatedAt = now;
         challenge.ExpiresAt = now.Add(_options.Ttl);
 
-        var message = _builder.BuildOtpMessage(email, code, _options.Ttl);
+        var message = await _builder.BuildOtpMessageAsync(email, code, _options.Ttl, cancellationToken).ConfigureAwait(false);
         await _dispatcher.SendAsync(message, cancellationToken).ConfigureAwait(false);
     }
 

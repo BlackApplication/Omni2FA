@@ -278,7 +278,7 @@ Single-login apps ignore all of this: the default audience is implicit and nothi
 | Interface | Replace to… |
 |-----------|-------------|
 | `IEmailSender` | send via your own infra (SendGrid/SES/relay) instead of MailKit/SMTP |
-| `IEmailMessageBuilder` | customize/localize the OTP email copy |
+| `IEmailMessageBuilder` | customize/localize the OTP email copy — async, so the recipient's language and name can come from your own store |
 | `IOmni2FaAuditSink` | forward audit events to your log/SIEM (default → `ILogger`) |
 | `ITwoFactorMethodStore` / `ITwoFactorChallengeStore` / `IRecoveryCodeStore` | use Mongo/Dapper/raw ADO instead of EF Core |
 | `IUserContextAccessor` | derive the current user id from a custom claim/header |
