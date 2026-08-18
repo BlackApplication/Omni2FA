@@ -49,6 +49,21 @@ sequenceDiagram
     end
 ```
 
+### Reload in the middle of the ceremony
+
+The user leaves for the mail app to read the code, and comes back to a page the browser has thrown
+away — routine on a memory-constrained iPhone, and reproducible anywhere with F5. Both halves of the
+ceremony survive it: the pre-auth token because `storage` defaults to `sessionStorage`, and the
+challenge because the core writes `{ methodId, methodType, expiresAt, resendAvailableAt }` alongside
+it while the machine waits for the code. `createOmni2Fa` reads the pair back and sends `resume`, which
+enters `awaitingCode` **without calling `/challenge/start`** — starting again would send a second code
+and invalidate the one already in the user's clipboard.
+
+The restore is skipped when there is no pre-auth token (nothing could be verified), and the snapshot is
+dropped once the challenge is `verified`, reset to `idle`, or `failed`. A host that renders its 2FA
+screen from `useChallenge().status` needs no code for any of this; one that renders from its own
+`useState` will still show the login form, because that flag is not what the core restored.
+
 ### Error paths
 
 - Pre-auth token expired → `401 PREAUTH_EXPIRED` → frontend sends user back to password step.

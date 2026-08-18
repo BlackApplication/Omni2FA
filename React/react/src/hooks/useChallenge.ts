@@ -18,6 +18,7 @@ export function useChallenge(): IUseChallengeResult {
         submit: (code) => actor.send({ type: 'submit', code }),
         resend: () => actor.send({ type: 'resend' }),
         useRecoveryCode: (code) => actor.send({ type: 'useRecoveryCode', code }),
+        resume: (state) => actor.send({ type: 'resume', state }),
         reset: () => actor.send({ type: 'reset' }),
     };
 }

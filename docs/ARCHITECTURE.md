@@ -34,7 +34,7 @@ Realistic split target: **~80% of UI-related logic lives in core**, ~20% is unav
 | **Error code → message mapping** | i18n-aware: `mapError(code, locale)`. |
 | **Validation** | `validateOtpFormat(input)`, `validateRecoveryCode(input)`. Pure functions. |
 | **Recovery code formatting** | Split into chunks of 4, generate downloadable text blob, copy-to-clipboard helper. |
-| **Storage abstraction** | `IStorage` interface (`get`, `set`, `remove`). Default implementations: `MemoryStorage`, `LocalStorageStorage`, `SessionStorageStorage`. |
+| **Storage abstraction** | `IStorage` interface (`get`, `set`, `remove`). Implementations: `SessionStorageStorage` (default), `MemoryStorage`, `LocalStorageStorage`. |
 
 ### Lives in framework packages (`@omni2fa/react`, future Vue/Angular/etc.)
 
@@ -244,11 +244,13 @@ interface IStorage {
 ```
 
 Core ships three implementations:
-- `MemoryStorage` — default, lost on reload. Safe for SSR.
+- `SessionStorageStorage` — persistent within a tab, gone when it closes. **The default**, picked by `createDefaultStorage()`.
+- `MemoryStorage` — lost on reload. The fallback where `sessionStorage` is absent or rejects writes (SSR, Safari private mode), and the explicit opt-out.
 - `LocalStorageStorage` — persistent across tabs and reloads. Browser only.
-- `SessionStorageStorage` — persistent within a tab. Browser only.
 
-Framework packages **don't pick a storage** — they accept whichever the host passes to `<Omni2FaProvider storage={...} />`. Default is `MemoryStorage` if not specified.
+Framework packages **don't pick a storage** — they accept whichever the host passes to `<Omni2FaProvider storage={...} />`.
+
+Two things live here, under the same lifetime: the **pre-auth token** and the **resumable challenge** (`omni2fa:challenge`). A tab that is reloaded or evicted by the OS is put back on the code screen from that pair, so the code the user already received still verifies — see [`FLOWS.md`](FLOWS.md) §1.
 
 On the .NET side the equivalent abstraction is `IPreAuthTokenSink` (where to issue / how to validate the JWT). Default = stateless JWT signed by app key. Pluggable to redis/database if the host needs revocation.
 

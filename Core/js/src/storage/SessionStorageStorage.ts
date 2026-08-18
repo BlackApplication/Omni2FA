@@ -1,6 +1,6 @@
 import type { IStorage } from './Interfaces/IStorage';
 
-/** Browser <c>sessionStorage</c>. Values persist across page reloads in the same tab, gone when tab closes. */
+/** Browser `sessionStorage`. The default. Values persist across page reloads in the same tab, gone when the tab closes. */
 export class SessionStorageStorage implements IStorage {
     get(key: string): string | null {
         return globalThis.sessionStorage?.getItem(key) ?? null;

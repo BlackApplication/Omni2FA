@@ -24,3 +24,7 @@ appsettings.Development.json
 
 /artifacts
 /examples/full/frontend/tsconfig.tsbuildinfo
+
+# === Publishing secrets (see publish.env.example) ===
+/publish.env
+/.npmrc.publish

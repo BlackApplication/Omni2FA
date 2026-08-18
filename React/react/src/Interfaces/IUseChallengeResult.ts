@@ -1,4 +1,4 @@
-import type { ChallengeContext } from '@omni2fa/core';
+import type { ChallengeContext, ChallengeResumeState } from '@omni2fa/core';
 
 export type ChallengeStatus = 'idle' | 'starting' | 'awaitingCode' | 'resending' | 'asserting' | 'verifying' | 'verifyingRecovery' | 'verified' | 'failed';
 
@@ -14,6 +14,12 @@ export interface IUseChallengeResult {
     resend: () => void;
     /** Complete login with a one-time recovery code instead of a method. */
     useRecoveryCode: (code: string) => void;
+    /**
+     * Return to the code screen for a challenge that is already running, without starting a new one.
+     * The core does this on its own for a reloaded tab; call it only when the host keeps its own copy
+     * of the challenge somewhere the core cannot see.
+     */
+    resume: (state: ChallengeResumeState) => void;
     /** Cancel/restart — wipes context and returns to <c>idle</c>. */
     reset: () => void;
 }

@@ -1,5 +1,17 @@
 # Publishing — cheat-sheet
 
+Each step below has a script in the repo root that runs it. Put the token and the key in
+`publish.env` (copy `publish.env.example`; it is gitignored) or paste them into the scripts,
+then from the root:
+
+```bash
+./bump-version.sh dotnet 0.10.2   # or: npm 0.11.0 / all 0.11.0
+./publish-npm.sh                  # --dry-run to rehearse
+./publish-nuget.sh                # --dry-run packs into artifacts/ without pushing
+```
+
+The rest of this file is what those scripts do, for when something needs doing by hand.
+
 ## 1. Bump version (only when re-publishing — a published version can't be overwritten)
 Set the new version in:
 - `package.json` (root), `Core/js/package.json`, `React/react/package.json`, `React/react-mui/package.json`, `examples/full/frontend/package.json` — incl. the `@omni2fa/*` dependency pins

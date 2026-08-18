@@ -4,7 +4,12 @@ import type { IStorage } from '../storage/Interfaces/IStorage';
 export interface Omni2FaClientConfig {
     /** Origin + mount path of the Omni2FA backend, e.g. <c>https://app.example.com/api/2fa</c>. */
     baseUrl: string;
-    /** Storage for the pre-auth token. Defaults to in-memory — lost on page reload. */
+    /**
+     * Where the pre-auth token and the resumable challenge are kept. Defaults to `sessionStorage`, so a
+     * reloaded or restored tab returns to the code screen instead of the login form; falls back to
+     * in-memory where `sessionStorage` is unavailable or throws (SSR, Safari private mode). Pass
+     * `new MemoryStorage()` to opt out and keep everything in the JS heap.
+     */
     storage?: IStorage;
     /**
      * Extra headers attached to every request — a routing flag, <c>Accept-Language</c>, an active-tenant id.
@@ -37,4 +42,7 @@ export interface Omni2FaClientConfig {
     preAuthStorageKey?: string;
     /** Storage key used to persist the host session token. Defaults to <c>omni2fa:session</c>, or <c>omni2fa:{namespace}:session</c>. */
     sessionStorageKey?: string;
+
+    /** Storage key used to persist the resumable challenge. Defaults to `omni2fa:challenge`, or `omni2fa:{namespace}:challenge`. */
+    challengeStorageKey?: string;
 }

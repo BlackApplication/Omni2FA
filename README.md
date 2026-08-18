@@ -138,6 +138,20 @@ const { status, context, pick, submit, useRecoveryCode } = useChallenge();
 // on 'verified': send context.verifiedToken to your finalize endpoint (not the pre-auth token)
 ```
 
+**Render the 2FA screen from `status`, not from your own flag.** A tab that is reloaded, or evicted by
+iOS while the user is in the mail app reading the code, comes back with the challenge intact: the core
+keeps the pre-auth token and the in-flight challenge in `sessionStorage` and re-enters `awaitingCode`
+without re-sending a code, so the one already in the clipboard still works. A screen gated on a local
+`useState` set when the login call returned shows the login form instead — the core restored its state,
+not yours.
+```tsx
+if (status !== 'idle') {
+  return <TwoFactorScreen />;   // survives a reload; a local `challenge !== null` flag does not
+}
+```
+Opt out with `createOmni2Fa({ baseUrl: '/api/2fa', storage: new MemoryStorage() })` — then nothing
+outlives the JS heap, as before 0.10.3.
+
 Hooks: `useMethods`, `useTotpEnrollment`, `useEmailEnrollment`, `useWebAuthnEnrollment`, `useChallenge` (+ `*Selector` variants). A full headless UI you can copy lives in [`examples/full/frontend`](examples/full/frontend). Styled drop-in components (`@omni2fa/react-mui`) are planned.
 
 ---

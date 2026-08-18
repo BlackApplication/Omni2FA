@@ -70,6 +70,7 @@ export function createChallengeMachine(client: IOmni2FaClient) {
                 on: {
                     pick: { target: 'starting' },
                     useRecoveryCode: { target: 'verifyingRecovery' },
+                    resume: { target: 'awaitingCode', actions: assignResumed },
                 },
             },
             starting: {
@@ -214,6 +215,21 @@ function assignStartOutput(context: ChallengeContext, output: { type: ChallengeC
     context.expiresAt = output.expiresAt ?? null;
     context.resendAvailableAt = output.resendAvailableAt ?? null;
     context.optionsJson = output.optionsJson ?? null;
+    context.errorCode = null;
+    context.errorMessage = null;
+}
+
+function assignResumed({ context, event }: { context: ChallengeContext; event: ChallengeEvent }) {
+    if (event.type !== 'resume') {
+        return;
+    }
+    context.methodId = event.state.methodId;
+    context.methodType = event.state.methodType;
+    context.expiresAt = event.state.expiresAt;
+    context.resendAvailableAt = event.state.resendAvailableAt;
+    context.userId = null;
+    context.verifiedToken = null;
+    context.optionsJson = null;
     context.errorCode = null;
     context.errorMessage = null;
 }

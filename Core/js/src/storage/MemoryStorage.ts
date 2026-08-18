@@ -1,6 +1,6 @@
 import type { IStorage } from './Interfaces/IStorage';
 
-/** In-process storage. Default. Values vanish on page reload — safest default. */
+/** In-process storage. Values vanish on page reload — the fallback when `sessionStorage` is unavailable, and the way to opt out of it. */
 export class MemoryStorage implements IStorage {
     private readonly map = new Map<string, string>();
 

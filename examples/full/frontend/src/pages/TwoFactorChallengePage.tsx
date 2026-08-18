@@ -44,7 +44,8 @@ export function TwoFactorChallengePage() {
         };
     }, [status, context.verifiedToken, navigate, reset, setSession]);
 
-    if (available.length === 0) {
+    // A restored tab has no navigation state, but the core put the challenge back — the picker is moot.
+    if (available.length === 0 && (status === 'idle' || status === 'failed')) {
         return (
             <Container maxWidth="xs" sx={{ pt: 10 }}>
                 <Alert severity="warning">No 2FA methods available. Go back and sign in again.</Alert>

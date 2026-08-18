@@ -83,14 +83,16 @@ This is a **living document**. Whenever a new rule is agreed upon during a sessi
 
 ## 8. Comments
 
-- Default: no comments. Identifier names should explain *what*.
-- A comment is justified only when *why* is non-obvious — a workaround, a hidden constraint, an invariant, units (UTC, bytes, seconds), format examples, non-obvious lifecycle. Keep it short.
-- Never reference task tracking, "added for X flow", or commit metadata in code comments.
+- **Default: no comments. None.** Identifier names and structure carry the meaning.
+- A comment is justified only when the *why* is genuinely underivable from the code — a workaround for an external bug, a protocol/format constraint, a security invariant a plain reading would undo, units (UTC, bytes, seconds). **One short line.**
+- **Never comment a fix.** No "fixed X", no "was broken because", no "added for the Y flow", no ticket or commit references — that history lives in git and `CHANGELOG.md`.
+- **No multi-line explanatory paragraphs** in a method body or above a property. If a rule needs a paragraph, it belongs in `docs/`, not in the source.
 
 **Specific noise to avoid:**
 
 - **`<inheritdoc />` alone on an implementation.** If the interface is documented, IntelliSense reads it through the interface. Add an XML doc on a concrete method only when there's something to add *beyond* what the interface says.
 - **`<summary>` that just restates the identifier.** `Id` → `Identifier of the row` adds zero information. `Type` → `The type of factor` is the same. Delete those.
+- **XML docs by default.** `CS1591` is suppressed — the build never asks for them. Write one only when a public API carries a constraint a caller cannot see from the signature.
 
 **Heuristic before keeping a comment:** if you removed it, would the reader lose anything the identifier doesn't already say? If no — delete.
 
@@ -134,3 +136,4 @@ If you're about to put a `setTimeout`, a `fetch`, an `if (type === 'Totp')`, or 
   - Account recovery (lost methods + lost recovery codes) is out of scope — host application's policy. Omni2FA exposes a "reset all 2FA for user X" primitive only.
 - **2026-05-20** — versioning model decided: **coordinated minor/major across all packages, independent patches** (Microsoft.AspNetCore-style). Packages on the same `MAJOR.MINOR.*` are guaranteed compatible — no compatibility matrix. See `docs/ROADMAP.md` "Versioning model" for examples. Earlier "independent per package" stance is retracted as it conflicted with milestone-based roadmap.
 - **2026-05-20** — added rule 10 "Framework-agnostic core (binding)" pointing at the new `docs/ARCHITECTURE.md`. Tests rule renumbered to 11. The architecture document is binding: framework adapters are stateless subscribers, business logic lives in core only.
+- **2026-08-18** — rule 8 tightened: comments are off by default, one short line only for an underivable *why*; no fix/bug annotations, no multi-line paragraphs in code, no XML docs unless they add a constraint the signature doesn't show. The existing sources predate this and do not comply.

@@ -1,6 +1,6 @@
 {
   "name": "@omni2fa-example/frontend",
-  "version": "0.10.1",
+  "version": "0.10.3",
   "private": true,
   "type": "module",
   "scripts": {
@@ -15,8 +15,8 @@
     "@emotion/styled": "^11.13.5",
     "@mui/icons-material": "^6.2.0",
     "@mui/material": "^6.2.0",
-    "@omni2fa/core": "0.10.1",
-    "@omni2fa/react": "0.10.1",
+    "@omni2fa/core": "0.10.3",
+    "@omni2fa/react": "0.10.3",
     "@xstate/react": "^5.0.0",
     "react": "^19.0.0",
     "react-dom": "^19.0.0",

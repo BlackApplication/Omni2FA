@@ -6,6 +6,7 @@ export type { ClientCallResult } from './client/Interfaces/ClientCallResult';
 export type { ClientCallError } from './client/Interfaces/ClientCallError';
 
 export type { IStorage } from './storage/Interfaces/IStorage';
+export { createDefaultStorage } from './storage/createDefaultStorage';
 export { MemoryStorage } from './storage/MemoryStorage';
 export { SessionStorageStorage } from './storage/SessionStorageStorage';
 export { LocalStorageStorage } from './storage/LocalStorageStorage';
@@ -36,6 +37,8 @@ export { createChallengeMachine } from './machines/challenge/challengeMachine';
 export type { ChallengeActor, ChallengeMachine } from './machines/challenge/challengeMachine';
 export type { ChallengeContext } from './machines/challenge/ChallengeContext';
 export type { ChallengeEvent } from './machines/challenge/ChallengeEvent';
+export type { ChallengeResumeState } from './machines/challenge/ChallengeResumeState';
+export { ChallengeResumeStore } from './machines/challenge/ChallengeResumeStore';
 
 export { createMethodsMachine } from './machines/methods/methodsMachine';
 export type { MethodsActor, MethodsMachine } from './machines/methods/methodsMachine';

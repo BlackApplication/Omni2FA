@@ -2,6 +2,47 @@
 
 All notable changes to Omni2FA will be documented in this file. Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); versions follow [SemVer](https://semver.org/).
 
+## [0.10.3] — 2026-08-18 (npm packages only)
+
+A 2FA login no longer dies when the browser reclaims the tab. Reported from an iPhone 7: the user
+switches to Mail to read the code, iOS unloads the page under memory pressure, and coming back shows
+the login form again — the code in the clipboard now belongs to a challenge nothing on screen knows
+about. Reproducible everywhere by pressing F5 on the code screen. Nothing on the wire changes: the
+OpenAPI contract stays at `0.8.1` and the .NET packages stay at `0.10.2`.
+
+### Changed
+- **`Omni2FaClientConfig.storage` now defaults to `sessionStorage`** instead of in-memory, falling back
+  to memory where `sessionStorage` is missing or throws (SSR, Safari private mode — it rejects writes,
+  not reads, so the probe writes). The pre-auth token is short-lived, scoped to the one tab that is
+  completing the ceremony, and gone when that tab closes; keeping it only in the JS heap meant every
+  host shipped a login that a reload silently cancelled. Pass `new MemoryStorage()` to keep the old
+  behavior.
+
+### Added
+- **The core restores an in-flight challenge by itself.** While the challenge machine sits in
+  `awaitingCode` it writes `{ methodId, methodType, expiresAt, resendAvailableAt }` to the configured
+  storage under `omni2fa:challenge`, and `createOmni2Fa` reads it back on the next start. It restores
+  only when a pre-auth token is present — without one the screen could not verify anything — and drops
+  the snapshot when the challenge reaches `verified`, `idle` or `failed`. A host that keeps everything
+  in memory (`MemoryStorage`) is unaffected: there is nothing to read back.
+- **`resume` event on the challenge machine** (`{ type: 'resume', state }`) — enters `awaitingCode` for
+  a challenge that is already running, without calling `/challenge/start`. This is the point of the
+  change: re-starting would send a fresh code and invalidate the one the user already copied.
+- **`ChallengeResumeState` / `ChallengeResumeStore`, `createDefaultStorage`** (`@omni2fa/core`) and
+  **`useChallenge().resume(state)`** (`@omni2fa/react`) — for hosts that keep the challenge somewhere
+  the core cannot see and drive the restore themselves.
+- **`Omni2FaClientConfig.challengeStorageKey`** — override for the snapshot key, matching the existing
+  overrides for the pre-auth and session keys. Namespaced clients get `omni2fa:{namespace}:challenge`.
+
+### Migration
+- Nothing to change for the restore itself. A host that renders its 2FA screen from its own
+  `useState` still lands on the login form, because the state the core restored is not the state it
+  renders from: drive the screen off `useChallenge().status` (`'awaitingCode'` and the other non-`idle`
+  values) instead of a local flag set when the login call returns.
+- A host that auto-picks its only method (`if (status === 'idle' && methods.length === 1) pick(...)`)
+  needs no guard — a restored tab is in `awaitingCode`, so the condition no longer holds.
+- Hosts that relied on the pre-auth token never leaving memory: pass `storage: new MemoryStorage()`.
+
 ## [0.10.2] — 2026-08-14 (.NET packages only)
 
 Makes the OTP email composable against a database, and gives the built-in one a design worth sending.

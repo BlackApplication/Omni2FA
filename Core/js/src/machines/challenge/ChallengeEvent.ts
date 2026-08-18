@@ -1,7 +1,10 @@
+import type { ChallengeResumeState } from './ChallengeResumeState';
+
 /** Events accepted by <see cref="createChallengeMachine"/>. */
 export type ChallengeEvent =
     | { type: 'pick'; methodId: string }
     | { type: 'submit'; code: string }
     | { type: 'resend' }
     | { type: 'useRecoveryCode'; code: string }
+    | { type: 'resume'; state: ChallengeResumeState }
     | { type: 'reset' };
